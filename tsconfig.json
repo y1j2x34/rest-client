@@ -11,12 +11,12 @@
     "strictNullChecks": true,
     "alwaysStrict": true,
     "preserveConstEnums": true,
-    "removeComments": true,
-    "inlineSourceMap": true,
+    "removeComments": false,
+    "sourceMap": true,
+    "sourceRoot": "src",
     "declaration": true
   },
   "include": [
-    "src",
-    "tests"
+    "src"
   ]
 }
