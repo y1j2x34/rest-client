@@ -1,6 +1,12 @@
 tests/
+bin/
+src/
 mocha.opts
 tsconfig.test.json
 .nycrc.json
 .editorconfig
-bin/
+.prettierrc
+rollup.config.json
+tsconfig.json
+tsconfig.test.json
+tslint.json
