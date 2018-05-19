@@ -1,0 +1,6 @@
+tests/
+mocha.opts
+tsconfig.test.json
+.nycrc.json
+.editorconfig
+bin/

@@ -14,7 +14,10 @@
     },
     "typings": "dist\\index.d.ts",
     "files": [
-        "dist"
+        "src",
+        "rollup.config.js",
+        "tslint.json",
+        "tsconfig.json"
     ],
     "scripts": {
         "commitmsg": "validate-commit-msg",
@@ -24,7 +27,8 @@
         "lint": "tslint --format verbose --type-check --fix --project tsconfig.json",
         "postlint": "npm run format",
         "test": "mocha --opts mocha.opts tests\\**\\*.test.ts",
-        "coverage": "nyc npm test"
+        "coverage": "nyc npm test",
+        "postinstall": "npm run build"
     },
     "config": {
         "validate-commit-msg": {
