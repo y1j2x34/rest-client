@@ -1,7 +1,7 @@
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
     typeof define === 'function' && define.amd ? define(factory) :
-    (global.restclient = factory());
+    (global.Rest = factory());
 }(this, (function () { 'use strict';
 
     /*! *****************************************************************************
@@ -202,8 +202,8 @@
     }());
 
     var index = {
-        FilterChain: FilterChain,
-        Endpoint: Endpoint
+        Endpoint: Endpoint,
+        FilterChain: FilterChain
     };
 
     return index;

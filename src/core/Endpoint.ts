@@ -62,13 +62,15 @@ export default class Endpoint {
         } else if (!url) {
             url = joinPath(this.server, this.basePath, path || '');
         }
-        this.apis
-            .set(name, {
-                ...config,
-                url,
-                method,
-                original: config
-            } as ICachedAPIConfig);
+        const cachedApiConfig = {
+            ...config,
+            url,
+            method,
+            original: config
+        } as ICachedAPIConfig;
+
+        this.apis.set(name, cachedApiConfig);
+
         return this;
     }
     public configure({basePath, filters, apis} : IEndpointConfigure) : Endpoint {
@@ -81,17 +83,23 @@ export default class Endpoint {
             this.addFilters(filters.responseSuccess, FilterOpportunity.RESPONSE_SUCCESS);
         }
         if (apis) {
-            for (const [name,
-                apiconfig]of Object.entries(apis)) {
+            for (const [name,apiconfig] of Object.entries(apis)) {
                 this.registerAPI(name, apiconfig);
             }
         }
-
         return this;
+    }
+    public api(name: string): any {
+        if(!this.apis.has(name)) {
+            throw new Error(`api '${name}' has not been registered!`);
+        }
+
+        this.apis.get(name);
+        return null;
     }
     private addFilters(filters : ComplexFiltersType, opt : FilterOpportunity) {
         if (filters && !(filters instanceof Array)) {
-            filters = [filters]as ComplexFiltersType;
+            filters = [filters] as ComplexFiltersType;
         }
         (filters as Filter[])
         .filter(filter => !!filter)

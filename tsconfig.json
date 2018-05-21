@@ -4,7 +4,10 @@
     "moduleResolution": "node",
     "target": "es5",
     "lib": [
-      "esnext"
+      "dom",
+      "es2015",
+      "es5",
+      "es6"
     ],
     "noImplicitAny": true,
     "noUnusedLocals": true,
@@ -13,7 +16,6 @@
     "preserveConstEnums": true,
     "removeComments": false,
     "sourceMap": true,
-    "sourceRoot": "src",
     "declaration": true
   },
   "include": [
