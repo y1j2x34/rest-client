@@ -1,22 +1,31 @@
 const typescript = require('rollup-plugin-typescript2');
+const nodeResolve = require('rollup-plugin-node-resolve');
+const commonjs = require('rollup-plugin-commonjs');
 
-module.exports = {
-    input: "src/index.ts",
-    output: {
-        file: 'dist/index.js',
+const plugins = require('./build/rollup.plugins');
+
+function output(to) {
+    return {
+        file: to,
         name: 'Rest',
         format: 'umd',
         sourcemap: true
-    },
+    };
+}
+
+module.exports = [{
+    input: "src/index.ts",
+    output: output('dist/index.js'),
     plugins: [
-        typescript({
-            tsconfig: 'tsconfig.json',
-            tsconfigOverride: {
-                sourceMap: true,
-                compilerOptions: {
-                    module: "ES2015"
-                }
-            }
-        })
+        plugins.typescript()
     ]
-};
+}, {
+    input: "src/index.ts",
+    output: output('dist/index.full.js'),
+    plugins: [
+        plugins.json(),
+        plugins.nodeResolve(),
+        plugins.commonjs(),
+        plugins.typescript()
+    ]
+}];
