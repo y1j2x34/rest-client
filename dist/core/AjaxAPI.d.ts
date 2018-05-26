@@ -1,16 +1,5 @@
-import {
-    HttpMethod,
-    ProgressHandler,
-    AbortHandler,
-    AjaxRequest,
-    ICredential,
-    IQueriesData,
-    IHeadersData,
-    ResponseType,
-} from './types';
-
-export type Payload = ArrayBuffer | Blob | string | FormData | IQueriesData;
-
+import { HttpMethod, ProgressHandler, AbortHandler, AjaxRequest, ICredential, IQueriesData, IHeadersData, ResponseType } from './types';
+export declare type Payload = ArrayBuffer | Blob | string | FormData | IQueriesData;
 export interface IRequestOptions {
     method?: HttpMethod;
     url: string;
@@ -24,7 +13,6 @@ export interface IRequestOptions {
     responseType?: ResponseType;
     timeout?: number;
 }
-
 export default interface IAjaxAPI {
     request(options: IRequestOptions): AjaxRequest;
 }

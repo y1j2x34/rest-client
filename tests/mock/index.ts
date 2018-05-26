@@ -1,6 +1,6 @@
 import * as request from 'superagent';
 import mocker from './mocker';
-console.info(mocker)
+console.info(mocker);
 
 const mock = mocker(request);
 mock.timeout = 100;
@@ -12,22 +12,22 @@ mock.get('/topics/:id', req => {
             id: req.params.id,
             content: 'hello world',
         },
-        headers: req.headers
+        headers: req.headers,
     };
 });
 mock.post('update/user/:id', req => {
     console.info(req);
     return {
-        data: {success: true}
+        data: { success: true },
     };
 });
 mock.post('upload/formdata', req => {
     console.info(req);
     return {
         data: {
-            success: true
-        }
+            success: true,
+        },
     };
-})
+});
 
 export default request;

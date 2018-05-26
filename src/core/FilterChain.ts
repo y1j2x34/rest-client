@@ -1,9 +1,9 @@
-export type Filter = (value : any, chain : FilterChain) => any;
+export type Filter = (value: any, chain: FilterChain) => any;
 
 const TERMINAL_RESULT = new Promise(() => undefined);
 
 export default class FilterChain {
-    public static isTerminal(value:any) {
+    public static isTerminal(value: any) {
         return TERMINAL_RESULT === value;
     }
     /**
@@ -12,11 +12,11 @@ export default class FilterChain {
      * @param {Filter[]} filters
      * @param {number} index
      */
-    constructor(private filters:Filter[], private index: number) {
+    constructor(private filters: Filter[], private index: number) {
         this.filters = filters.slice(0);
         this.index = index;
     }
-    public next(value:any):any {
+    public next(value: any): any {
         if (this.index >= this.filters.length) {
             return this.finish(value);
         }
@@ -25,26 +25,25 @@ export default class FilterChain {
         const nextchain = this.nextchain();
         return filter(value, nextchain);
     }
-    public retry(value:any) {
+    public retry(value: any) {
         return this.chainAt(0).start(value);
     }
-    public start(value:any) {
+    public start(value: any) {
         return this.next(value);
     }
-    public error(reason:Error) {
+    public error(reason: Error) {
         return Promise.reject(reason);
     }
-    public finish(result:any) {
+    public finish(result: any) {
         return result;
     }
     public terminal() {
         return TERMINAL_RESULT;
     }
-    private chainAt(index:number):FilterChain {
+    private chainAt(index: number): FilterChain {
         return new FilterChain(this.filters, index);
     }
-    private nextchain():FilterChain {
+    private nextchain(): FilterChain {
         return this.chainAt(this.index + 1);
     }
-
 }

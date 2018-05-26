@@ -1,9 +1,22 @@
 import { Filter } from './FilterChain';
 export declare type Primitive = string | boolean | number;
+export declare type IDirection = 'download' | 'upload';
+export declare type TypedArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray | Int8Array | Int16Array | Int32Array | Float32Array | Float64Array;
+export declare type StreamData = File | Blob | ArrayBuffer | TypedArray;
+export declare type ResponseType = 'blob' | 'arraybuffer';
+export interface IQueriesData {
+    [key: string]: Primitive;
+}
+export interface IHeadersData {
+    [key: string]: string;
+}
 export declare enum HttpMethod {
     GET = 0,
     POST = 1,
     PUT = 2,
+    DELETE = 3,
+    PATCH = 4,
+    HEAD = 5,
 }
 export declare enum FilterOpportunity {
     REQUEST = 0,
@@ -12,22 +25,22 @@ export declare enum FilterOpportunity {
 }
 export interface IFiltersConfig {
     request?: Filter | Filter[];
-    responseSuccess: Filter | Filter[];
-    responseError: Filter | Filter[];
+    responseSuccess?: Filter | Filter[];
+    responseError?: Filter | Filter[];
 }
-export declare type ProgressListener = () => void;
-export declare type AbortListener = () => void;
-export declare type ErrorListener = () => void;
-export declare type LoadListener = () => void;
-export declare type LoadStartListener = () => void;
-export declare type LoadEndListener = () => void;
+export interface Progress {
+    direction: IDirection;
+    loaded: number;
+    percent?: number;
+    total?: number;
+}
+export declare type ProgressHandler = (prog: Progress) => void;
+export declare type AbortHandler = () => void;
+export declare type ErrorHandler = (err: any) => void;
 export interface IListeners {
-    progresss: ProgressListener;
-    abort: AbortListener;
-    error: ErrorListener;
-    load: LoadListener;
-    loadstart: LoadStartListener;
-    loadend: LoadEndListener;
+    progresss: ProgressHandler;
+    abort: AbortHandler;
+    error: ErrorHandler;
 }
 export interface IQueryConfig {
     name: string;
@@ -53,12 +66,76 @@ export interface IAPIConfig {
     headers?: IHeaderConfig[];
     filters?: IFiltersConfig;
     listeners?: IListeners;
+    credential?: ICredential;
+}
+export interface ICredential {
+    username: string;
+    password: string;
+}
+export interface IAjaxRequestOptions {
+    method?: HttpMethod;
+    queries?: {
+        [key: string]: Primitive;
+    };
+    headers?: {
+        [name: string]: string;
+    };
+    filters?: IFiltersConfig;
+    credential?: ICredential;
+    formdata?: FormData | {
+        [fild: string]: Primitive;
+    };
+    files?: StreamData | string | string[] | StreamData[] | object | object[];
+    json?: string;
+    contentType?: string;
+    responseType?: ResponseType;
 }
 export declare type Validator = (value: any, params: object) => boolean;
+export interface ResponseError extends Error {
+    status: number;
+    text: string;
+    method: string;
+    path: string;
+}
+export declare type CallbackHandler = (err: any, res: AjaxResponse) => void;
 export interface IEndpointConfigure {
     basePath: string;
     filters: IFiltersConfig;
     apis: {
         [name: string]: IAPIConfig;
     };
+}
+export interface AjaxResponse {
+    accepted: boolean;
+    badRequest: boolean;
+    body: any;
+    charset: string;
+    clientError: boolean;
+    error: ResponseError;
+    files: any;
+    forbidden: boolean;
+    headers: IHeadersData;
+    info: boolean;
+    noContent: boolean;
+    notAcceptable: boolean;
+    notFound: boolean;
+    ok: boolean;
+    redirect: boolean;
+    serverError: boolean;
+    status: number;
+    statusType: number;
+    text: string;
+    type: string;
+    unauthorized: boolean;
+    getHeader(name: string): string;
+}
+export interface AjaxRequest extends Promise<any> {
+    abort(): void;
+    progress(handler: ProgressHandler): void;
+    on(name: 'abort', handler: AbortHandler): void;
+    on(name: 'error', handler: ErrorHandler): void;
+    on(name: string, handler: (event: any) => void): void;
+    retry(count: number, callback: CallbackHandler): void;
+    then(fullfilled?: (value: any) => any, onrejected?: ((reason: any) => any)): AjaxRequest;
+    catch(onrejected?: ((reason: any) => any)): AjaxRequest;
 }

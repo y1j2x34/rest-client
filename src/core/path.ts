@@ -8,14 +8,17 @@ const replaceSepsRegExp = /[/\\]+/g;
  * @param {...string[]} paths
  * @returns {string}
  */
-export function join(...paths:string[]):string {
-    return paths.filter(path => !!path)
+export function join(...paths: string[]): string {
+    return paths
+        .filter(path => !!path)
         .map(path => {
             if (path.match(/^[a-z]+:\/{2,}.*/i)) {
                 return path;
             }
-            return path.replace(replacePrefRegExp, '$1')
+            return path
+                .replace(replacePrefRegExp, '$1')
                 .replace(replaceSepsRegExp, '/')
                 .replace(replaceSufRegExp, '');
-        }).join('/');
+        })
+        .join('/');
 }

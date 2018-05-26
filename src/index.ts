@@ -3,5 +3,5 @@ import FilterChain from './core/FilterChain';
 
 export default {
     Endpoint,
-    FilterChain
-}
+    FilterChain,
+};
