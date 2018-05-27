@@ -9,11 +9,12 @@ const replaceSepsRegExp = /[/\\]+/g;
  * @returns {string}
  */
 export function join(...paths: string[]): string {
+    console.info(paths);
     return paths
         .filter(path => !!path)
         .map(path => {
             if (path.match(/^[a-z]+:\/{2,}.*/i)) {
-                return path;
+                return path.replace(replaceSufRegExp, '');
             }
             return path
                 .replace(replacePrefRegExp, '$1')

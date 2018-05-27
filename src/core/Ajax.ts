@@ -108,7 +108,7 @@ export default class Ajax {
     private resolveRequestOptions(
         options: IAjaxRequestOptions
     ): IRequestOptions {
-        const url: string = '';
+        const url: string = this.url;
         const method = options.method || this.method;
         const queries = options.queries;
         const credential = Object.assign(

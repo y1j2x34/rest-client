@@ -28,7 +28,7 @@ export default class Endpoint {
     public responseErrorFilters: Filter[] = [];
     private apis: Map<string, ICachedAPIConfig> = new Map();
 
-    constructor(private server: string, private basePath: string) {}
+    constructor(private server: string, private basePath: string='') {}
 
     public addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint {
         switch (opportunity) {
