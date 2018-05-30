@@ -1,5 +1,6 @@
 {
   "files.associations": {
-    "**/bin/*": "javascript"
+    "**/bin/*": "javascript",
+    "*.do": "javascript"
   }
 }
