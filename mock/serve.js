@@ -5,11 +5,6 @@ var express = require("express");
 var port = 8989;
 var app = express();
 
-app.use(function(req, res, next){
-	res.setHeader("Content-Type", "application/json;charset=utf-8");
-	next();
-});
-
 app.use(function(req, resp, next){
     resp.setHeader('Access-Control-Allow-Origin', '*');
     resp.setHeader('Access-Control-Allow-Headers', '*');
@@ -24,12 +19,11 @@ function handler(req, resp){
     console.info(req.method);
 
     var filename = path.join(__dirname , req.path);
-    console.info(filename);
+    console.info(req.path);
     var result;
     if(fs.existsSync(filename)){
         var content = fs.readFileSync(filename);
         content = "(" + content + ")";
-        // jshint evil:true
         result = eval(content);
 
         if(result instanceof Function){
@@ -54,12 +48,27 @@ function handler(req, resp){
             code: "NotFound"
         });
     }
-    result.then(function(body){
-        content = JSON.stringify({
-            success: true,
-            data: body
-        });
-        resp.write(content);
+    result.then(function(data){
+        if(data.headers) {
+            for(var name in data.headers) {
+                resp.setHeader(name, data.headers[name]);
+            }
+        }
+
+        if(data.status) {
+            resp.status(data.status);
+        }
+        let contentType = data.contentType || (data.headers ? data.headers['Content-Type'] : undefined);
+        if(data.body instanceof Buffer) {
+            resp.setHeader('Content-Type', contentType || 'application/octet-stream');
+            resp.write(data.body);
+        } else {
+            resp.setHeader('Content-Type', contentType || 'application/json;charset=utf8');
+            resp.write(JSON.stringify({
+                success: true,
+                data: data.body
+            }));
+        }
         resp.end();
     }, function(err) {
         resp.status(err.status || 500).send(JSON.stringify({
@@ -67,6 +76,7 @@ function handler(req, resp){
             message: err.message || 'Server error',
             code: err.code || 'ServerError'
         }));
+	    resp.setHeader("Content-Type", "application/json;charset=utf-8");
         console.error(err.message, err.stack);
         resp.end();
     });
