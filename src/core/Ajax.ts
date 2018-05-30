@@ -4,6 +4,7 @@ import {
     IAPIConfig,
     IAjaxRequestOptions,
     AjaxRequest,
+    InternalAjaxRequestOptions,
 } from './types';
 import Endpoint from './Endpoint';
 import FilterChain, { Filter } from './Filterchain';
@@ -37,10 +38,10 @@ export default class Ajax {
         if (options.filters) {
             this.requestFilters = this.cloneFilters(options.filters.request);
             this.responseErrorFilters = this.cloneFilters(
-                options.filters.request
+                options.filters.failure
             );
             this.responseSuccessFilters = this.cloneFilters(
-                options.filters.request
+                options.filters.success
             );
         }
         this.endpoint = options.endpoint;
@@ -52,8 +53,8 @@ export default class Ajax {
             method: this.method,
             filters: {
                 request: this.cloneFilters(this.requestFilters),
-                responseError: this.cloneFilters(this.responseErrorFilters),
-                responseSuccess: this.cloneFilters(this.responseSuccessFilters),
+                failure: this.cloneFilters(this.responseErrorFilters),
+                success: this.cloneFilters(this.responseSuccessFilters),
             },
             endpoint: this.endpoint,
             config: this.config,
@@ -65,14 +66,14 @@ export default class Ajax {
         }
 
         const responseSuccessFilters = this.resolveResponseSuccessFilters(
-            options.filters ? options.filters.responseSuccess : undefined
+            options.filters ? options.filters.success : undefined
         );
         const responseErrorFilters = this.resolveResponseErrorFilters(
-            options.filters ? options.filters.responseError : undefined
+            options.filters ? options.filters.failure : undefined
         );
 
         const doRequestFilter = (
-            requestOptions: IAjaxRequestOptions,
+            requestOptions: InternalAjaxRequestOptions,
             chain: FilterChain
         ) => {
             const resolvedOptions = this.resolveRequestOptions(requestOptions);
@@ -103,19 +104,26 @@ export default class Ajax {
             options.filters ? options.filters.request : undefined,
             doRequestFilter
         );
-        return new FilterChain(requestFilters, 0).start(options);
+        return new FilterChain(requestFilters, 0).start({
+            ...options,
+            apiConfig: this.config,
+            url: this.url,
+        });
     }
     private resolveRequestOptions(
         options: IAjaxRequestOptions
     ): IRequestOptions {
-        const url: string = this.url;
+        const url: string = options.url;
         const method = options.method || this.method;
         const queries = options.queries;
-        const credential = Object.assign(
-            {},
-            this.config.credential,
-            options.credential
-        );
+        let credential;
+        if(this.config.credential || options.credential) {
+            credential = Object.assign(
+                {},
+                this.config.credential,
+                options.credential
+            );
+        }
         const headers = Object.assign({}, this.config.headers, options.headers);
         return {
             method,

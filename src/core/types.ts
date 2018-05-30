@@ -21,6 +21,12 @@ export interface IQueriesData {
 export interface IHeadersData {
     [key: string]: string;
 }
+export interface IFormData {
+    [key: string]: string;
+}
+export interface IPathVariables {
+    [key: string]: string;
+}
 
 export enum HttpMethod {
     GET,
@@ -38,8 +44,8 @@ export enum FilterOpportunity {
 }
 export interface IFiltersConfig {
     request?: Filter | Filter[];
-    responseSuccess?: Filter | Filter[];
-    responseError?: Filter | Filter[];
+    success?: Filter | Filter[];
+    failure?: Filter | Filter[];
 }
 
 export interface Progress {
@@ -58,30 +64,44 @@ export interface IListeners {
     abort: AbortHandler;
     error: ErrorHandler;
 }
-export interface IQueryConfig {
+export type RequestParamField =
+    | 'pathVariables'
+    | 'queries'
+    | 'headers'
+    | 'formdata';
+
+export interface IParamConfig {
     name: string;
     defaultValue?: Primitive;
     required?: boolean;
     validator?: Validator;
 }
 
-export interface IHeaderConfig {
-    name: string;
-    defaultValue: string | string[];
-    required?: boolean;
-}
-
-export interface IPathVariable {
-    name: string;
+export interface IQueryConfig extends IParamConfig {
     defaultValue?: Primitive;
 }
+
+export interface IHeaderConfig extends IParamConfig {
+    defaultValue: string;
+}
+
+export interface IPathVariable extends IParamConfig {
+    defaultValue?: string;
+}
+
+export interface IFormdataConfig extends IParamConfig {
+    defaultValue?: Primitive;
+}
+
 export interface IAPIConfig {
+    [key: string]: any;
     url?: string;
     path?: string;
     method: HttpMethod;
-    pathVariable?: IPathVariable[];
+    pathVariables?: IPathVariable[];
     queries?: IQueryConfig[];
     headers?: IHeaderConfig[];
+    formdata?: IFormdataConfig[];
     filters?: IFiltersConfig;
     listeners?: IListeners;
     credential?: ICredential;
@@ -91,19 +111,25 @@ export interface ICredential {
     password: string;
 }
 export interface IAjaxRequestOptions {
+    [key: string]: any;
     method?: HttpMethod;
-    queries?: { [key: string]: Primitive };
-    headers?: { [name: string]: string };
+    queries?: IQueriesData;
+    headers?: IHeadersData;
+    pathVariables?: IPathVariables;
     filters?: IFiltersConfig;
     credential?: ICredential;
-    formdata?: FormData | { [fild: string]: Primitive };
+    formdata?: FormData | IFormData;
     files?: StreamData | string | string[] | StreamData[] | object | object[];
     json?: string;
     contentType?: string;
     responseType?: ResponseType;
 }
+export interface InternalAjaxRequestOptions extends IAjaxRequestOptions {
+    apiConfig: IAPIConfig;
+    url: string;
+}
 
-export type Validator = (value: any, params: object) => boolean;
+export type Validator = (value: any, params: IAjaxRequestOptions) => boolean;
 
 export interface ResponseError extends Error {
     status: number;

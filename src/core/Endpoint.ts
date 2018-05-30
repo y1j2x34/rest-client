@@ -7,6 +7,12 @@ import {
     HttpMethod,
 } from './types';
 import Ajax from './Ajax';
+import validateRequiredParameterFilters from './internal/validateRequiredParameterFilters';
+import defaultValueFilter from './internal/defaultValueFilter';
+import optionsValidatorFilters from './internal/optionsValidatorFilters';
+import pathVariableFilter from './internal/pathVariableFilter';
+import queriesFilter from './internal/queriesFilter';
+import jsonParameterFilter from './internal/jsonParameterFilter';
 
 type ComplexFiltersType = Filter | Filter[] | undefined;
 
@@ -23,12 +29,12 @@ export default class Endpoint {
     public static OPPORTUNITY_RESPONSE_ERROR: string = OPPORTUNITY_RESPONSE_ERROR;
     public static OPPORTUNITY_RESPONSE_SUCCESS: string = OPPORTUNITY_RESPONSE_SUCCESS;
 
-    public requestFilters: Filter[] = [];
+    public requestFilters: Filter[] = [pathVariableFilter, queriesFilter];
     public responseSuccessFilters: Filter[] = [];
     public responseErrorFilters: Filter[] = [];
     private apis: Map<string, ICachedAPIConfig> = new Map();
 
-    constructor(private server: string, private basePath: string='') {}
+    constructor(private server: string, private basePath: string = '') {}
 
     public addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint {
         switch (opportunity) {
@@ -64,11 +70,42 @@ export default class Endpoint {
         } else if (!url) {
             url = joinPath(this.server, this.basePath, path || '');
         }
+
+        const filters: {
+            request: Filter[];
+            success: Filter[];
+            failure: Filter[];
+        } = {
+            request: [],
+            success: [],
+            failure: [],
+        };
+
+        filters.request = filters.request
+            .concat(validateRequiredParameterFilters(config))
+            .concat(defaultValueFilter(config))
+            .concat(optionsValidatorFilters(config));
+
+        if (config.formdata) {
+            filters.request.unshift(jsonParameterFilter);
+        }
+        const apiFilters = config.filters;
+        if (apiFilters && apiFilters.request) {
+            if (typeof apiFilters.request === 'function') {
+                filters.request.unshift(apiFilters.request);
+            } else if (Array.isArray(apiFilters.request)) {
+                filters.request = apiFilters.request.concat(filters.request);
+            }
+        }
+
         const cachedApiConfig = {
             ...config,
             url,
             method,
             original: config,
+            filters: {
+                ...filters,
+            },
         } as ICachedAPIConfig;
 
         this.apis.set(name, cachedApiConfig);
@@ -85,12 +122,9 @@ export default class Endpoint {
         }
         if (filters) {
             this.addFilters(filters.request, FilterOpportunity.REQUEST);
+            this.addFilters(filters.failure, FilterOpportunity.RESPONSE_ERROR);
             this.addFilters(
-                filters.responseError,
-                FilterOpportunity.RESPONSE_ERROR
-            );
-            this.addFilters(
-                filters.responseSuccess,
+                filters.success,
                 FilterOpportunity.RESPONSE_SUCCESS
             );
         }
@@ -115,8 +149,8 @@ export default class Endpoint {
             endpoint: this,
             method: config.method || HttpMethod.GET,
             config: config || ({} as ICachedAPIConfig),
+            filters: config.filters,
             // url: config.url,
-            // filters?: config.filters,
             // endpoint: this,
             // method: config.method
             // origin

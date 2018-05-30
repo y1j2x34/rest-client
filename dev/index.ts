@@ -1,14 +1,21 @@
 import Rest from  '../src/index';
 import { HttpMethod } from '../src/core/types';
-console.info(Rest);
 
-const endpoint = new Rest.Endpoint('http://127.0.0.1:8989/', '');
+const endpoint = new Rest.Endpoint('http://127.0.0.1:8989/', 'api');
 
 endpoint.registerAPI('userInfo', {
     method: HttpMethod.GET,
-    path: '/user/info.do'
+    path: '/user/:what.do',
+    queries: [{
+        name: 'id',
+        required: true
+    }],
+    pathVariables: [{
+        name: 'what',
+        required: true
+    }]
 });
 
 export const userInfoAPI =  endpoint.api('userInfo');
 
-console.info(userInfoAPI);
+(window as any).userInfoAPI = userInfoAPI;
