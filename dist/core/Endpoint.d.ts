@@ -1,4 +1,4 @@
-import { Filter } from './Filterchain';
+import { Filter } from './FilterChain';
 import { IAPIConfig, FilterOpportunity, IEndpointConfigure } from './types';
 export default class Endpoint {
     private server;
@@ -10,7 +10,7 @@ export default class Endpoint {
     responseSuccessFilters: Filter[];
     responseErrorFilters: Filter[];
     private apis;
-    constructor(server: string, basePath: string);
+    constructor(server: string, basePath?: string);
     addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint;
     registerAPI(name: string, config: IAPIConfig): Endpoint;
     configure({basePath, filters, apis}: IEndpointConfigure): Endpoint;

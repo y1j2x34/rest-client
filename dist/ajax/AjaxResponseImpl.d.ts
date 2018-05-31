@@ -1,4 +1,3 @@
-/// <reference types="superagent" />
 import { Response } from 'superagent';
 import { ResponseError, AjaxResponse, IHeadersData } from '../core/types';
 export default class AjaxResponseImpl implements AjaxResponse {

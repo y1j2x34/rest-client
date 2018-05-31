@@ -42,11 +42,12 @@
         for (var _i = 0; _i < arguments.length; _i++) {
             paths[_i] = arguments[_i];
         }
+        console.info(paths);
         return paths
             .filter(function (path) { return !!path; })
             .map(function (path) {
             if (path.match(/^[a-z]+:\/{2,}.*/i)) {
-                return path;
+                return path.replace(replaceSufRegExp, '');
             }
             return path
                 .replace(replacePrefRegExp, '$1')
@@ -2417,6 +2418,802 @@
         };
         return SuperAgentAjaxAPI;
     }());
+
+    const toBytes = s => [...s].map(c => c.charCodeAt(0));
+    const xpiZipFilename = toBytes('META-INF/mozilla.rsa');
+    const oxmlContentTypes = toBytes('[Content_Types].xml');
+    const oxmlRels = toBytes('_rels/.rels');
+
+    var fileType = input => {
+    	const buf = input instanceof Uint8Array ? input : new Uint8Array(input);
+
+    	if (!(buf && buf.length > 1)) {
+    		return null;
+    	}
+
+    	const check = (header, options) => {
+    		options = Object.assign({
+    			offset: 0
+    		}, options);
+
+    		for (let i = 0; i < header.length; i++) {
+    			// If a bitmask is set
+    			if (options.mask) {
+    				// If header doesn't equal `buf` with bits masked off
+    				if (header[i] !== (options.mask[i] & buf[i + options.offset])) {
+    					return false;
+    				}
+    			} else if (header[i] !== buf[i + options.offset]) {
+    				return false;
+    			}
+    		}
+
+    		return true;
+    	};
+
+    	const checkString = (header, options) => check(toBytes(header), options);
+
+    	if (check([0xFF, 0xD8, 0xFF])) {
+    		return {
+    			ext: 'jpg',
+    			mime: 'image/jpeg'
+    		};
+    	}
+
+    	if (check([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) {
+    		return {
+    			ext: 'png',
+    			mime: 'image/png'
+    		};
+    	}
+
+    	if (check([0x47, 0x49, 0x46])) {
+    		return {
+    			ext: 'gif',
+    			mime: 'image/gif'
+    		};
+    	}
+
+    	if (check([0x57, 0x45, 0x42, 0x50], {offset: 8})) {
+    		return {
+    			ext: 'webp',
+    			mime: 'image/webp'
+    		};
+    	}
+
+    	if (check([0x46, 0x4C, 0x49, 0x46])) {
+    		return {
+    			ext: 'flif',
+    			mime: 'image/flif'
+    		};
+    	}
+
+    	// Needs to be before `tif` check
+    	if (
+    		(check([0x49, 0x49, 0x2A, 0x0]) || check([0x4D, 0x4D, 0x0, 0x2A])) &&
+    		check([0x43, 0x52], {offset: 8})
+    	) {
+    		return {
+    			ext: 'cr2',
+    			mime: 'image/x-canon-cr2'
+    		};
+    	}
+
+    	if (
+    		check([0x49, 0x49, 0x2A, 0x0]) ||
+    		check([0x4D, 0x4D, 0x0, 0x2A])
+    	) {
+    		return {
+    			ext: 'tif',
+    			mime: 'image/tiff'
+    		};
+    	}
+
+    	if (check([0x42, 0x4D])) {
+    		return {
+    			ext: 'bmp',
+    			mime: 'image/bmp'
+    		};
+    	}
+
+    	if (check([0x49, 0x49, 0xBC])) {
+    		return {
+    			ext: 'jxr',
+    			mime: 'image/vnd.ms-photo'
+    		};
+    	}
+
+    	if (check([0x38, 0x42, 0x50, 0x53])) {
+    		return {
+    			ext: 'psd',
+    			mime: 'image/vnd.adobe.photoshop'
+    		};
+    	}
+
+    	// Zip-based file formats
+    	// Need to be before the `zip` check
+    	if (check([0x50, 0x4B, 0x3, 0x4])) {
+    		if (
+    			check([0x6D, 0x69, 0x6D, 0x65, 0x74, 0x79, 0x70, 0x65, 0x61, 0x70, 0x70, 0x6C, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6F, 0x6E, 0x2F, 0x65, 0x70, 0x75, 0x62, 0x2B, 0x7A, 0x69, 0x70], {offset: 30})
+    		) {
+    			return {
+    				ext: 'epub',
+    				mime: 'application/epub+zip'
+    			};
+    		}
+
+    		// Assumes signed `.xpi` from addons.mozilla.org
+    		if (check(xpiZipFilename, {offset: 30})) {
+    			return {
+    				ext: 'xpi',
+    				mime: 'application/x-xpinstall'
+    			};
+    		}
+
+    		if (checkString('mimetypeapplication/vnd.oasis.opendocument.text', {offset: 30})) {
+    			return {
+    				ext: 'odt',
+    				mime: 'application/vnd.oasis.opendocument.text'
+    			};
+    		}
+
+    		if (checkString('mimetypeapplication/vnd.oasis.opendocument.spreadsheet', {offset: 30})) {
+    			return {
+    				ext: 'ods',
+    				mime: 'application/vnd.oasis.opendocument.spreadsheet'
+    			};
+    		}
+
+    		if (checkString('mimetypeapplication/vnd.oasis.opendocument.presentation', {offset: 30})) {
+    			return {
+    				ext: 'odp',
+    				mime: 'application/vnd.oasis.opendocument.presentation'
+    			};
+    		}
+
+    		// https://github.com/file/file/blob/master/magic/Magdir/msooxml
+    		if (check(oxmlContentTypes, {offset: 30}) || check(oxmlRels, {offset: 30})) {
+    			const sliced = buf.subarray(4, 4 + 2000);
+    			const nextZipHeaderIndex = arr => arr.findIndex((el, i, arr) => arr[i] === 0x50 && arr[i + 1] === 0x4B && arr[i + 2] === 0x3 && arr[i + 3] === 0x4);
+    			const header2Pos = nextZipHeaderIndex(sliced);
+
+    			if (header2Pos !== -1) {
+    				const slicedAgain = buf.subarray(header2Pos + 8, header2Pos + 8 + 1000);
+    				const header3Pos = nextZipHeaderIndex(slicedAgain);
+
+    				if (header3Pos !== -1) {
+    					const offset = 8 + header2Pos + header3Pos + 30;
+
+    					if (checkString('word/', {offset})) {
+    						return {
+    							ext: 'docx',
+    							mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    						};
+    					}
+
+    					if (checkString('ppt/', {offset})) {
+    						return {
+    							ext: 'pptx',
+    							mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    						};
+    					}
+
+    					if (checkString('xl/', {offset})) {
+    						return {
+    							ext: 'xlsx',
+    							mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    						};
+    					}
+    				}
+    			}
+    		}
+    	}
+
+    	if (
+    		check([0x50, 0x4B]) &&
+    		(buf[2] === 0x3 || buf[2] === 0x5 || buf[2] === 0x7) &&
+    		(buf[3] === 0x4 || buf[3] === 0x6 || buf[3] === 0x8)
+    	) {
+    		return {
+    			ext: 'zip',
+    			mime: 'application/zip'
+    		};
+    	}
+
+    	if (check([0x75, 0x73, 0x74, 0x61, 0x72], {offset: 257})) {
+    		return {
+    			ext: 'tar',
+    			mime: 'application/x-tar'
+    		};
+    	}
+
+    	if (
+    		check([0x52, 0x61, 0x72, 0x21, 0x1A, 0x7]) &&
+    		(buf[6] === 0x0 || buf[6] === 0x1)
+    	) {
+    		return {
+    			ext: 'rar',
+    			mime: 'application/x-rar-compressed'
+    		};
+    	}
+
+    	if (check([0x1F, 0x8B, 0x8])) {
+    		return {
+    			ext: 'gz',
+    			mime: 'application/gzip'
+    		};
+    	}
+
+    	if (check([0x42, 0x5A, 0x68])) {
+    		return {
+    			ext: 'bz2',
+    			mime: 'application/x-bzip2'
+    		};
+    	}
+
+    	if (check([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])) {
+    		return {
+    			ext: '7z',
+    			mime: 'application/x-7z-compressed'
+    		};
+    	}
+
+    	if (check([0x78, 0x01])) {
+    		return {
+    			ext: 'dmg',
+    			mime: 'application/x-apple-diskimage'
+    		};
+    	}
+
+    	if (check([0x33, 0x67, 0x70, 0x35]) || // 3gp5
+    		(
+    			check([0x0, 0x0, 0x0]) && check([0x66, 0x74, 0x79, 0x70], {offset: 4}) &&
+    				(
+    					check([0x6D, 0x70, 0x34, 0x31], {offset: 8}) || // MP41
+    					check([0x6D, 0x70, 0x34, 0x32], {offset: 8}) || // MP42
+    					check([0x69, 0x73, 0x6F, 0x6D], {offset: 8}) || // ISOM
+    					check([0x69, 0x73, 0x6F, 0x32], {offset: 8}) || // ISO2
+    					check([0x6D, 0x6D, 0x70, 0x34], {offset: 8}) || // MMP4
+    					check([0x4D, 0x34, 0x56], {offset: 8}) || // M4V
+    					check([0x64, 0x61, 0x73, 0x68], {offset: 8}) // DASH
+    				)
+    		)) {
+    		return {
+    			ext: 'mp4',
+    			mime: 'video/mp4'
+    		};
+    	}
+
+    	if (check([0x4D, 0x54, 0x68, 0x64])) {
+    		return {
+    			ext: 'mid',
+    			mime: 'audio/midi'
+    		};
+    	}
+
+    	// https://github.com/threatstack/libmagic/blob/master/magic/Magdir/matroska
+    	if (check([0x1A, 0x45, 0xDF, 0xA3])) {
+    		const sliced = buf.subarray(4, 4 + 4096);
+    		const idPos = sliced.findIndex((el, i, arr) => arr[i] === 0x42 && arr[i + 1] === 0x82);
+
+    		if (idPos !== -1) {
+    			const docTypePos = idPos + 3;
+    			const findDocType = type => [...type].every((c, i) => sliced[docTypePos + i] === c.charCodeAt(0));
+
+    			if (findDocType('matroska')) {
+    				return {
+    					ext: 'mkv',
+    					mime: 'video/x-matroska'
+    				};
+    			}
+
+    			if (findDocType('webm')) {
+    				return {
+    					ext: 'webm',
+    					mime: 'video/webm'
+    				};
+    			}
+    		}
+    	}
+
+    	if (check([0x0, 0x0, 0x0, 0x14, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20]) ||
+    		check([0x66, 0x72, 0x65, 0x65], {offset: 4}) ||
+    		check([0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20], {offset: 4}) ||
+    		check([0x6D, 0x64, 0x61, 0x74], {offset: 4}) || // MJPEG
+    		check([0x77, 0x69, 0x64, 0x65], {offset: 4})) {
+    		return {
+    			ext: 'mov',
+    			mime: 'video/quicktime'
+    		};
+    	}
+
+    	// RIFF file format which might be AVI, WAV, QCP, etc
+    	if (check([0x52, 0x49, 0x46, 0x46])) {
+    		if (check([0x41, 0x56, 0x49], {offset: 8})) {
+    			return {
+    				ext: 'avi',
+    				mime: 'video/x-msvideo'
+    			};
+    		}
+    		if (check([0x57, 0x41, 0x56, 0x45], {offset: 8})) {
+    			return {
+    				ext: 'wav',
+    				mime: 'audio/x-wav'
+    			};
+    		}
+    		// QLCM, QCP file
+    		if (check([0x51, 0x4C, 0x43, 0x4D], {offset: 8})) {
+    			return {
+    				ext: 'qcp',
+    				mime: 'audio/qcelp'
+    			};
+    		}
+    	}
+
+    	if (check([0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9])) {
+    		return {
+    			ext: 'wmv',
+    			mime: 'video/x-ms-wmv'
+    		};
+    	}
+
+    	if (
+    		check([0x0, 0x0, 0x1, 0xBA]) ||
+    		check([0x0, 0x0, 0x1, 0xB3])
+    	) {
+    		return {
+    			ext: 'mpg',
+    			mime: 'video/mpeg'
+    		};
+    	}
+
+    	if (check([0x66, 0x74, 0x79, 0x70, 0x33, 0x67], {offset: 4})) {
+    		return {
+    			ext: '3gp',
+    			mime: 'video/3gpp'
+    		};
+    	}
+
+    	// Check for MPEG header at different starting offsets
+    	for (let start = 0; start < 2 && start < (buf.length - 16); start++) {
+    		if (
+    			check([0x49, 0x44, 0x33], {offset: start}) || // ID3 header
+    			check([0xFF, 0xE2], {offset: start, mask: [0xFF, 0xE2]}) // MPEG 1 or 2 Layer 3 header
+    		) {
+    			return {
+    				ext: 'mp3',
+    				mime: 'audio/mpeg'
+    			};
+    		}
+
+    		if (
+    			check([0xFF, 0xE4], {offset: start, mask: [0xFF, 0xE4]}) // MPEG 1 or 2 Layer 2 header
+    		) {
+    			return {
+    				ext: 'mp2',
+    				mime: 'audio/mpeg'
+    			};
+    		}
+
+    		if (
+    			check([0xFF, 0xF8], {offset: start, mask: [0xFF, 0xFC]}) // MPEG 2 layer 0 using ADTS
+    		) {
+    			return {
+    				ext: 'mp2',
+    				mime: 'audio/mpeg'
+    			};
+    		}
+
+    		if (
+    			check([0xFF, 0xF0], {offset: start, mask: [0xFF, 0xFC]}) // MPEG 4 layer 0 using ADTS
+    		) {
+    			return {
+    				ext: 'mp4',
+    				mime: 'audio/mpeg'
+    			};
+    		}
+    	}
+
+    	if (
+    		check([0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41], {offset: 4}) ||
+    		check([0x4D, 0x34, 0x41, 0x20])
+    	) {
+    		return {
+    			ext: 'm4a',
+    			mime: 'audio/m4a'
+    		};
+    	}
+
+    	// Needs to be before `ogg` check
+    	if (check([0x4F, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64], {offset: 28})) {
+    		return {
+    			ext: 'opus',
+    			mime: 'audio/opus'
+    		};
+    	}
+
+    	// If 'OggS' in first  bytes, then OGG container
+    	if (check([0x4F, 0x67, 0x67, 0x53])) {
+    		// This is a OGG container
+
+    		// If ' theora' in header.
+    		if (check([0x80, 0x74, 0x68, 0x65, 0x6F, 0x72, 0x61], {offset: 28})) {
+    			return {
+    				ext: 'ogv',
+    				mime: 'video/ogg'
+    			};
+    		}
+    		// If '\x01video' in header.
+    		if (check([0x01, 0x76, 0x69, 0x64, 0x65, 0x6F, 0x00], {offset: 28})) {
+    			return {
+    				ext: 'ogm',
+    				mime: 'video/ogg'
+    			};
+    		}
+    		// If ' FLAC' in header  https://xiph.org/flac/faq.html
+    		if (check([0x7F, 0x46, 0x4C, 0x41, 0x43], {offset: 28})) {
+    			return {
+    				ext: 'oga',
+    				mime: 'audio/ogg'
+    			};
+    		}
+
+    		// 'Speex  ' in header https://en.wikipedia.org/wiki/Speex
+    		if (check([0x53, 0x70, 0x65, 0x65, 0x78, 0x20, 0x20], {offset: 28})) {
+    			return {
+    				ext: 'spx',
+    				mime: 'audio/ogg'
+    			};
+    		}
+
+    		// If '\x01vorbis' in header
+    		if (check([0x01, 0x76, 0x6F, 0x72, 0x62, 0x69, 0x73], {offset: 28})) {
+    			return {
+    				ext: 'ogg',
+    				mime: 'audio/ogg'
+    			};
+    		}
+
+    		// Default OGG container https://www.iana.org/assignments/media-types/application/ogg
+    		return {
+    			ext: 'ogx',
+    			mime: 'application/ogg'
+    		};
+    	}
+
+    	if (check([0x66, 0x4C, 0x61, 0x43])) {
+    		return {
+    			ext: 'flac',
+    			mime: 'audio/x-flac'
+    		};
+    	}
+
+    	if (check([0x23, 0x21, 0x41, 0x4D, 0x52, 0x0A])) {
+    		return {
+    			ext: 'amr',
+    			mime: 'audio/amr'
+    		};
+    	}
+
+    	if (check([0x25, 0x50, 0x44, 0x46])) {
+    		return {
+    			ext: 'pdf',
+    			mime: 'application/pdf'
+    		};
+    	}
+
+    	if (check([0x4D, 0x5A])) {
+    		return {
+    			ext: 'exe',
+    			mime: 'application/x-msdownload'
+    		};
+    	}
+
+    	if (
+    		(buf[0] === 0x43 || buf[0] === 0x46) &&
+    		check([0x57, 0x53], {offset: 1})
+    	) {
+    		return {
+    			ext: 'swf',
+    			mime: 'application/x-shockwave-flash'
+    		};
+    	}
+
+    	if (check([0x7B, 0x5C, 0x72, 0x74, 0x66])) {
+    		return {
+    			ext: 'rtf',
+    			mime: 'application/rtf'
+    		};
+    	}
+
+    	if (check([0x00, 0x61, 0x73, 0x6D])) {
+    		return {
+    			ext: 'wasm',
+    			mime: 'application/wasm'
+    		};
+    	}
+
+    	if (
+    		check([0x77, 0x4F, 0x46, 0x46]) &&
+    		(
+    			check([0x00, 0x01, 0x00, 0x00], {offset: 4}) ||
+    			check([0x4F, 0x54, 0x54, 0x4F], {offset: 4})
+    		)
+    	) {
+    		return {
+    			ext: 'woff',
+    			mime: 'font/woff'
+    		};
+    	}
+
+    	if (
+    		check([0x77, 0x4F, 0x46, 0x32]) &&
+    		(
+    			check([0x00, 0x01, 0x00, 0x00], {offset: 4}) ||
+    			check([0x4F, 0x54, 0x54, 0x4F], {offset: 4})
+    		)
+    	) {
+    		return {
+    			ext: 'woff2',
+    			mime: 'font/woff2'
+    		};
+    	}
+
+    	if (
+    		check([0x4C, 0x50], {offset: 34}) &&
+    		(
+    			check([0x00, 0x00, 0x01], {offset: 8}) ||
+    			check([0x01, 0x00, 0x02], {offset: 8}) ||
+    			check([0x02, 0x00, 0x02], {offset: 8})
+    		)
+    	) {
+    		return {
+    			ext: 'eot',
+    			mime: 'application/octet-stream'
+    		};
+    	}
+
+    	if (check([0x00, 0x01, 0x00, 0x00, 0x00])) {
+    		return {
+    			ext: 'ttf',
+    			mime: 'font/ttf'
+    		};
+    	}
+
+    	if (check([0x4F, 0x54, 0x54, 0x4F, 0x00])) {
+    		return {
+    			ext: 'otf',
+    			mime: 'font/otf'
+    		};
+    	}
+
+    	if (check([0x00, 0x00, 0x01, 0x00])) {
+    		return {
+    			ext: 'ico',
+    			mime: 'image/x-icon'
+    		};
+    	}
+
+    	if (check([0x00, 0x00, 0x02, 0x00])) {
+    		return {
+    			ext: 'cur',
+    			mime: 'image/x-icon'
+    		};
+    	}
+
+    	if (check([0x46, 0x4C, 0x56, 0x01])) {
+    		return {
+    			ext: 'flv',
+    			mime: 'video/x-flv'
+    		};
+    	}
+
+    	if (check([0x25, 0x21])) {
+    		return {
+    			ext: 'ps',
+    			mime: 'application/postscript'
+    		};
+    	}
+
+    	if (check([0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00])) {
+    		return {
+    			ext: 'xz',
+    			mime: 'application/x-xz'
+    		};
+    	}
+
+    	if (check([0x53, 0x51, 0x4C, 0x69])) {
+    		return {
+    			ext: 'sqlite',
+    			mime: 'application/x-sqlite3'
+    		};
+    	}
+
+    	if (check([0x4E, 0x45, 0x53, 0x1A])) {
+    		return {
+    			ext: 'nes',
+    			mime: 'application/x-nintendo-nes-rom'
+    		};
+    	}
+
+    	if (check([0x43, 0x72, 0x32, 0x34])) {
+    		return {
+    			ext: 'crx',
+    			mime: 'application/x-google-chrome-extension'
+    		};
+    	}
+
+    	if (
+    		check([0x4D, 0x53, 0x43, 0x46]) ||
+    		check([0x49, 0x53, 0x63, 0x28])
+    	) {
+    		return {
+    			ext: 'cab',
+    			mime: 'application/vnd.ms-cab-compressed'
+    		};
+    	}
+
+    	// Needs to be before `ar` check
+    	if (check([0x21, 0x3C, 0x61, 0x72, 0x63, 0x68, 0x3E, 0x0A, 0x64, 0x65, 0x62, 0x69, 0x61, 0x6E, 0x2D, 0x62, 0x69, 0x6E, 0x61, 0x72, 0x79])) {
+    		return {
+    			ext: 'deb',
+    			mime: 'application/x-deb'
+    		};
+    	}
+
+    	if (check([0x21, 0x3C, 0x61, 0x72, 0x63, 0x68, 0x3E])) {
+    		return {
+    			ext: 'ar',
+    			mime: 'application/x-unix-archive'
+    		};
+    	}
+
+    	if (check([0xED, 0xAB, 0xEE, 0xDB])) {
+    		return {
+    			ext: 'rpm',
+    			mime: 'application/x-rpm'
+    		};
+    	}
+
+    	if (
+    		check([0x1F, 0xA0]) ||
+    		check([0x1F, 0x9D])
+    	) {
+    		return {
+    			ext: 'Z',
+    			mime: 'application/x-compress'
+    		};
+    	}
+
+    	if (check([0x4C, 0x5A, 0x49, 0x50])) {
+    		return {
+    			ext: 'lz',
+    			mime: 'application/x-lzip'
+    		};
+    	}
+
+    	if (check([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])) {
+    		return {
+    			ext: 'msi',
+    			mime: 'application/x-msi'
+    		};
+    	}
+
+    	if (check([0x06, 0x0E, 0x2B, 0x34, 0x02, 0x05, 0x01, 0x01, 0x0D, 0x01, 0x02, 0x01, 0x01, 0x02])) {
+    		return {
+    			ext: 'mxf',
+    			mime: 'application/mxf'
+    		};
+    	}
+
+    	if (check([0x47], {offset: 4}) && (check([0x47], {offset: 192}) || check([0x47], {offset: 196}))) {
+    		return {
+    			ext: 'mts',
+    			mime: 'video/mp2t'
+    		};
+    	}
+
+    	if (check([0x42, 0x4C, 0x45, 0x4E, 0x44, 0x45, 0x52])) {
+    		return {
+    			ext: 'blend',
+    			mime: 'application/x-blender'
+    		};
+    	}
+
+    	if (check([0x42, 0x50, 0x47, 0xFB])) {
+    		return {
+    			ext: 'bpg',
+    			mime: 'image/bpg'
+    		};
+    	}
+
+    	if (check([0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A])) {
+    		// JPEG-2000 family
+
+    		if (check([0x6A, 0x70, 0x32, 0x20], {offset: 20})) {
+    			return {
+    				ext: 'jp2',
+    				mime: 'image/jp2'
+    			};
+    		}
+
+    		if (check([0x6A, 0x70, 0x78, 0x20], {offset: 20})) {
+    			return {
+    				ext: 'jpx',
+    				mime: 'image/jpx'
+    			};
+    		}
+
+    		if (check([0x6A, 0x70, 0x6D, 0x20], {offset: 20})) {
+    			return {
+    				ext: 'jpm',
+    				mime: 'image/jpm'
+    			};
+    		}
+
+    		if (check([0x6D, 0x6A, 0x70, 0x32], {offset: 20})) {
+    			return {
+    				ext: 'mj2',
+    				mime: 'image/mj2'
+    			};
+    		}
+    	}
+
+    	if (check([0x46, 0x4F, 0x52, 0x4D, 0x00])) {
+    		return {
+    			ext: 'aif',
+    			mime: 'audio/aiff'
+    		};
+    	}
+
+    	if (checkString('<?xml ')) {
+    		return {
+    			ext: 'xml',
+    			mime: 'application/xml'
+    		};
+    	}
+
+    	if (check([0x42, 0x4F, 0x4F, 0x4B, 0x4D, 0x4F, 0x42, 0x49], {offset: 60})) {
+    		return {
+    			ext: 'mobi',
+    			mime: 'application/x-mobipocket-ebook'
+    		};
+    	}
+
+    	// File Type Box (https://en.wikipedia.org/wiki/ISO_base_media_file_format)
+    	if (check([0x66, 0x74, 0x79, 0x70], {offset: 4})) {
+    		if (check([0x6D, 0x69, 0x66, 0x31], {offset: 8})) {
+    			return {
+    				ext: 'heic',
+    				mime: 'image/heif'
+    			};
+    		}
+
+    		if (check([0x6D, 0x73, 0x66, 0x31], {offset: 8})) {
+    			return {
+    				ext: 'heic',
+    				mime: 'image/heif-sequence'
+    			};
+    		}
+
+    		if (check([0x68, 0x65, 0x69, 0x63], {offset: 8}) || check([0x68, 0x65, 0x69, 0x78], {offset: 8})) {
+    			return {
+    				ext: 'heic',
+    				mime: 'image/heic'
+    			};
+    		}
+
+    		if (check([0x68, 0x65, 0x76, 0x63], {offset: 8}) || check([0x68, 0x65, 0x76, 0x78], {offset: 8})) {
+    			return {
+    				ext: 'heic',
+    				mime: 'image/heic-sequence'
+    			};
+    		}
+    	}
+
+    	return null;
+    };
+    var fileType_1 = fileType.call;
 
     var db = {
     	"application/1d-interleaved-parityfec": {
@@ -11473,1449 +12270,24 @@
 
     var mimeDb = require$$0;
 
-    var isBufferBrowser = function isBuffer(arg) {
-      return arg && typeof arg === 'object'
-        && typeof arg.copy === 'function'
-        && typeof arg.fill === 'function'
-        && typeof arg.readUInt8 === 'function';
-    };
-
-    var inherits_browser = createCommonjsModule(function (module) {
-    if (typeof Object.create === 'function') {
-      // implementation from standard node.js 'util' module
-      module.exports = function inherits(ctor, superCtor) {
-        ctor.super_ = superCtor;
-        ctor.prototype = Object.create(superCtor.prototype, {
-          constructor: {
-            value: ctor,
-            enumerable: false,
-            writable: true,
-            configurable: true
-          }
-        });
-      };
-    } else {
-      // old school shim for old browsers
-      module.exports = function inherits(ctor, superCtor) {
-        ctor.super_ = superCtor;
-        var TempCtor = function () {};
-        TempCtor.prototype = superCtor.prototype;
-        ctor.prototype = new TempCtor();
-        ctor.prototype.constructor = ctor;
-      };
-    }
+    var db$2 = /*#__PURE__*/Object.freeze({
+        default: mimeDb,
+        __moduleExports: mimeDb
     });
 
-    var util = createCommonjsModule(function (module, exports) {
-    // Copyright Joyent, Inc. and other Node contributors.
-    //
-    // Permission is hereby granted, free of charge, to any person obtaining a
-    // copy of this software and associated documentation files (the
-    // "Software"), to deal in the Software without restriction, including
-    // without limitation the rights to use, copy, modify, merge, publish,
-    // distribute, sublicense, and/or sell copies of the Software, and to permit
-    // persons to whom the Software is furnished to do so, subject to the
-    // following conditions:
-    //
-    // The above copyright notice and this permission notice shall be included
-    // in all copies or substantial portions of the Software.
-    //
-    // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-    // OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    // MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-    // NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-    // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-    // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-    // USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    var formatRegExp = /%[sdj%]/g;
-    exports.format = function(f) {
-      if (!isString(f)) {
-        var objects = [];
-        for (var i = 0; i < arguments.length; i++) {
-          objects.push(inspect(arguments[i]));
+    // import * as mimetype from 'mime-types';
+    var mimeData = db$2;
+    var extToMime = {};
+    Object.keys(mimeData).reduce(function (prev, type) {
+        var info = mimeData[type];
+        if (info.extensions) {
+            info.extensions.reduce(function (_, ext) {
+                _[ext] = type;
+                return _;
+            }, prev);
         }
-        return objects.join(' ');
-      }
-
-      var i = 1;
-      var args = arguments;
-      var len = args.length;
-      var str = String(f).replace(formatRegExp, function(x) {
-        if (x === '%%') return '%';
-        if (i >= len) return x;
-        switch (x) {
-          case '%s': return String(args[i++]);
-          case '%d': return Number(args[i++]);
-          case '%j':
-            try {
-              return JSON.stringify(args[i++]);
-            } catch (_) {
-              return '[Circular]';
-            }
-          default:
-            return x;
-        }
-      });
-      for (var x = args[i]; i < len; x = args[++i]) {
-        if (isNull(x) || !isObject(x)) {
-          str += ' ' + x;
-        } else {
-          str += ' ' + inspect(x);
-        }
-      }
-      return str;
-    };
-
-
-    // Mark that a method should not be used.
-    // Returns a modified function which warns once by default.
-    // If --no-deprecation is set, then it is a no-op.
-    exports.deprecate = function(fn, msg) {
-      // Allow for deprecating things in the process of starting up.
-      if (isUndefined(commonjsGlobal.process)) {
-        return function() {
-          return exports.deprecate(fn, msg).apply(this, arguments);
-        };
-      }
-
-      if (process.noDeprecation === true) {
-        return fn;
-      }
-
-      var warned = false;
-      function deprecated() {
-        if (!warned) {
-          if (process.throwDeprecation) {
-            throw new Error(msg);
-          } else if (process.traceDeprecation) {
-            console.trace(msg);
-          } else {
-            console.error(msg);
-          }
-          warned = true;
-        }
-        return fn.apply(this, arguments);
-      }
-
-      return deprecated;
-    };
-
-
-    var debugs = {};
-    var debugEnviron;
-    exports.debuglog = function(set) {
-      if (isUndefined(debugEnviron))
-        debugEnviron = process.env.NODE_DEBUG || '';
-      set = set.toUpperCase();
-      if (!debugs[set]) {
-        if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
-          var pid = process.pid;
-          debugs[set] = function() {
-            var msg = exports.format.apply(exports, arguments);
-            console.error('%s %d: %s', set, pid, msg);
-          };
-        } else {
-          debugs[set] = function() {};
-        }
-      }
-      return debugs[set];
-    };
-
-
-    /**
-     * Echos the value of a value. Trys to print the value out
-     * in the best way possible given the different types.
-     *
-     * @param {Object} obj The object to print out.
-     * @param {Object} opts Optional options object that alters the output.
-     */
-    /* legacy: obj, showHidden, depth, colors*/
-    function inspect(obj, opts) {
-      // default options
-      var ctx = {
-        seen: [],
-        stylize: stylizeNoColor
-      };
-      // legacy...
-      if (arguments.length >= 3) ctx.depth = arguments[2];
-      if (arguments.length >= 4) ctx.colors = arguments[3];
-      if (isBoolean(opts)) {
-        // legacy...
-        ctx.showHidden = opts;
-      } else if (opts) {
-        // got an "options" object
-        exports._extend(ctx, opts);
-      }
-      // set default options
-      if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-      if (isUndefined(ctx.depth)) ctx.depth = 2;
-      if (isUndefined(ctx.colors)) ctx.colors = false;
-      if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
-      if (ctx.colors) ctx.stylize = stylizeWithColor;
-      return formatValue(ctx, obj, ctx.depth);
-    }
-    exports.inspect = inspect;
-
-
-    // http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-    inspect.colors = {
-      'bold' : [1, 22],
-      'italic' : [3, 23],
-      'underline' : [4, 24],
-      'inverse' : [7, 27],
-      'white' : [37, 39],
-      'grey' : [90, 39],
-      'black' : [30, 39],
-      'blue' : [34, 39],
-      'cyan' : [36, 39],
-      'green' : [32, 39],
-      'magenta' : [35, 39],
-      'red' : [31, 39],
-      'yellow' : [33, 39]
-    };
-
-    // Don't use 'blue' not visible on cmd.exe
-    inspect.styles = {
-      'special': 'cyan',
-      'number': 'yellow',
-      'boolean': 'yellow',
-      'undefined': 'grey',
-      'null': 'bold',
-      'string': 'green',
-      'date': 'magenta',
-      // "name": intentionally not styling
-      'regexp': 'red'
-    };
-
-
-    function stylizeWithColor(str, styleType) {
-      var style = inspect.styles[styleType];
-
-      if (style) {
-        return '\u001b[' + inspect.colors[style][0] + 'm' + str +
-               '\u001b[' + inspect.colors[style][1] + 'm';
-      } else {
-        return str;
-      }
-    }
-
-
-    function stylizeNoColor(str, styleType) {
-      return str;
-    }
-
-
-    function arrayToHash(array) {
-      var hash = {};
-
-      array.forEach(function(val, idx) {
-        hash[val] = true;
-      });
-
-      return hash;
-    }
-
-
-    function formatValue(ctx, value, recurseTimes) {
-      // Provide a hook for user-specified inspect functions.
-      // Check that value is an object with an inspect function on it
-      if (ctx.customInspect &&
-          value &&
-          isFunction(value.inspect) &&
-          // Filter out the util module, it's inspect function is special
-          value.inspect !== exports.inspect &&
-          // Also filter out any prototype objects using the circular check.
-          !(value.constructor && value.constructor.prototype === value)) {
-        var ret = value.inspect(recurseTimes, ctx);
-        if (!isString(ret)) {
-          ret = formatValue(ctx, ret, recurseTimes);
-        }
-        return ret;
-      }
-
-      // Primitive types cannot have properties
-      var primitive = formatPrimitive(ctx, value);
-      if (primitive) {
-        return primitive;
-      }
-
-      // Look up the keys of the object.
-      var keys = Object.keys(value);
-      var visibleKeys = arrayToHash(keys);
-
-      if (ctx.showHidden) {
-        keys = Object.getOwnPropertyNames(value);
-      }
-
-      // IE doesn't make error fields non-enumerable
-      // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
-      if (isError(value)
-          && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
-        return formatError(value);
-      }
-
-      // Some type of object without properties can be shortcutted.
-      if (keys.length === 0) {
-        if (isFunction(value)) {
-          var name = value.name ? ': ' + value.name : '';
-          return ctx.stylize('[Function' + name + ']', 'special');
-        }
-        if (isRegExp(value)) {
-          return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-        }
-        if (isDate(value)) {
-          return ctx.stylize(Date.prototype.toString.call(value), 'date');
-        }
-        if (isError(value)) {
-          return formatError(value);
-        }
-      }
-
-      var base = '', array = false, braces = ['{', '}'];
-
-      // Make Array say that they are Array
-      if (isArray(value)) {
-        array = true;
-        braces = ['[', ']'];
-      }
-
-      // Make functions say that they are functions
-      if (isFunction(value)) {
-        var n = value.name ? ': ' + value.name : '';
-        base = ' [Function' + n + ']';
-      }
-
-      // Make RegExps say that they are RegExps
-      if (isRegExp(value)) {
-        base = ' ' + RegExp.prototype.toString.call(value);
-      }
-
-      // Make dates with properties first say the date
-      if (isDate(value)) {
-        base = ' ' + Date.prototype.toUTCString.call(value);
-      }
-
-      // Make error with message first say the error
-      if (isError(value)) {
-        base = ' ' + formatError(value);
-      }
-
-      if (keys.length === 0 && (!array || value.length == 0)) {
-        return braces[0] + base + braces[1];
-      }
-
-      if (recurseTimes < 0) {
-        if (isRegExp(value)) {
-          return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-        } else {
-          return ctx.stylize('[Object]', 'special');
-        }
-      }
-
-      ctx.seen.push(value);
-
-      var output;
-      if (array) {
-        output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
-      } else {
-        output = keys.map(function(key) {
-          return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
-        });
-      }
-
-      ctx.seen.pop();
-
-      return reduceToSingleString(output, base, braces);
-    }
-
-
-    function formatPrimitive(ctx, value) {
-      if (isUndefined(value))
-        return ctx.stylize('undefined', 'undefined');
-      if (isString(value)) {
-        var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                                 .replace(/'/g, "\\'")
-                                                 .replace(/\\"/g, '"') + '\'';
-        return ctx.stylize(simple, 'string');
-      }
-      if (isNumber(value))
-        return ctx.stylize('' + value, 'number');
-      if (isBoolean(value))
-        return ctx.stylize('' + value, 'boolean');
-      // For some reason typeof null is "object", so special case here.
-      if (isNull(value))
-        return ctx.stylize('null', 'null');
-    }
-
-
-    function formatError(value) {
-      return '[' + Error.prototype.toString.call(value) + ']';
-    }
-
-
-    function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
-      var output = [];
-      for (var i = 0, l = value.length; i < l; ++i) {
-        if (hasOwnProperty(value, String(i))) {
-          output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-              String(i), true));
-        } else {
-          output.push('');
-        }
-      }
-      keys.forEach(function(key) {
-        if (!key.match(/^\d+$/)) {
-          output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-              key, true));
-        }
-      });
-      return output;
-    }
-
-
-    function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
-      var name, str, desc;
-      desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-      if (desc.get) {
-        if (desc.set) {
-          str = ctx.stylize('[Getter/Setter]', 'special');
-        } else {
-          str = ctx.stylize('[Getter]', 'special');
-        }
-      } else {
-        if (desc.set) {
-          str = ctx.stylize('[Setter]', 'special');
-        }
-      }
-      if (!hasOwnProperty(visibleKeys, key)) {
-        name = '[' + key + ']';
-      }
-      if (!str) {
-        if (ctx.seen.indexOf(desc.value) < 0) {
-          if (isNull(recurseTimes)) {
-            str = formatValue(ctx, desc.value, null);
-          } else {
-            str = formatValue(ctx, desc.value, recurseTimes - 1);
-          }
-          if (str.indexOf('\n') > -1) {
-            if (array) {
-              str = str.split('\n').map(function(line) {
-                return '  ' + line;
-              }).join('\n').substr(2);
-            } else {
-              str = '\n' + str.split('\n').map(function(line) {
-                return '   ' + line;
-              }).join('\n');
-            }
-          }
-        } else {
-          str = ctx.stylize('[Circular]', 'special');
-        }
-      }
-      if (isUndefined(name)) {
-        if (array && key.match(/^\d+$/)) {
-          return str;
-        }
-        name = JSON.stringify('' + key);
-        if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-          name = name.substr(1, name.length - 2);
-          name = ctx.stylize(name, 'name');
-        } else {
-          name = name.replace(/'/g, "\\'")
-                     .replace(/\\"/g, '"')
-                     .replace(/(^"|"$)/g, "'");
-          name = ctx.stylize(name, 'string');
-        }
-      }
-
-      return name + ': ' + str;
-    }
-
-
-    function reduceToSingleString(output, base, braces) {
-      var length = output.reduce(function(prev, cur) {
-        if (cur.indexOf('\n') >= 0) ;
-        return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
-      }, 0);
-
-      if (length > 60) {
-        return braces[0] +
-               (base === '' ? '' : base + '\n ') +
-               ' ' +
-               output.join(',\n  ') +
-               ' ' +
-               braces[1];
-      }
-
-      return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-    }
-
-
-    // NOTE: These type checking functions intentionally don't use `instanceof`
-    // because it is fragile and can be easily faked with `Object.create()`.
-    function isArray(ar) {
-      return Array.isArray(ar);
-    }
-    exports.isArray = isArray;
-
-    function isBoolean(arg) {
-      return typeof arg === 'boolean';
-    }
-    exports.isBoolean = isBoolean;
-
-    function isNull(arg) {
-      return arg === null;
-    }
-    exports.isNull = isNull;
-
-    function isNullOrUndefined(arg) {
-      return arg == null;
-    }
-    exports.isNullOrUndefined = isNullOrUndefined;
-
-    function isNumber(arg) {
-      return typeof arg === 'number';
-    }
-    exports.isNumber = isNumber;
-
-    function isString(arg) {
-      return typeof arg === 'string';
-    }
-    exports.isString = isString;
-
-    function isSymbol(arg) {
-      return typeof arg === 'symbol';
-    }
-    exports.isSymbol = isSymbol;
-
-    function isUndefined(arg) {
-      return arg === void 0;
-    }
-    exports.isUndefined = isUndefined;
-
-    function isRegExp(re) {
-      return isObject(re) && objectToString(re) === '[object RegExp]';
-    }
-    exports.isRegExp = isRegExp;
-
-    function isObject(arg) {
-      return typeof arg === 'object' && arg !== null;
-    }
-    exports.isObject = isObject;
-
-    function isDate(d) {
-      return isObject(d) && objectToString(d) === '[object Date]';
-    }
-    exports.isDate = isDate;
-
-    function isError(e) {
-      return isObject(e) &&
-          (objectToString(e) === '[object Error]' || e instanceof Error);
-    }
-    exports.isError = isError;
-
-    function isFunction(arg) {
-      return typeof arg === 'function';
-    }
-    exports.isFunction = isFunction;
-
-    function isPrimitive(arg) {
-      return arg === null ||
-             typeof arg === 'boolean' ||
-             typeof arg === 'number' ||
-             typeof arg === 'string' ||
-             typeof arg === 'symbol' ||  // ES6 symbol
-             typeof arg === 'undefined';
-    }
-    exports.isPrimitive = isPrimitive;
-
-    exports.isBuffer = isBufferBrowser;
-
-    function objectToString(o) {
-      return Object.prototype.toString.call(o);
-    }
-
-
-    function pad(n) {
-      return n < 10 ? '0' + n.toString(10) : n.toString(10);
-    }
-
-
-    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-                  'Oct', 'Nov', 'Dec'];
-
-    // 26 Feb 16:19:34
-    function timestamp() {
-      var d = new Date();
-      var time = [pad(d.getHours()),
-                  pad(d.getMinutes()),
-                  pad(d.getSeconds())].join(':');
-      return [d.getDate(), months[d.getMonth()], time].join(' ');
-    }
-
-
-    // log is just a thin wrapper to console.log that prepends a timestamp
-    exports.log = function() {
-      console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
-    };
-
-
-    /**
-     * Inherit the prototype methods from one constructor into another.
-     *
-     * The Function.prototype.inherits from lang.js rewritten as a standalone
-     * function (not on Function.prototype). NOTE: If this file is to be loaded
-     * during bootstrapping this function needs to be rewritten using some native
-     * functions as prototype setup using normal JavaScript does not work as
-     * expected during bootstrapping (see mirror.js in r114903).
-     *
-     * @param {function} ctor Constructor function which needs to inherit the
-     *     prototype.
-     * @param {function} superCtor Constructor function to inherit prototype from.
-     */
-    exports.inherits = inherits_browser;
-
-    exports._extend = function(origin, add) {
-      // Don't do anything if add isn't an object
-      if (!add || !isObject(add)) return origin;
-
-      var keys = Object.keys(add);
-      var i = keys.length;
-      while (i--) {
-        origin[keys[i]] = add[keys[i]];
-      }
-      return origin;
-    };
-
-    function hasOwnProperty(obj, prop) {
-      return Object.prototype.hasOwnProperty.call(obj, prop);
-    }
-    });
-    var util_1 = util.format;
-    var util_2 = util.deprecate;
-    var util_3 = util.debuglog;
-    var util_4 = util.inspect;
-    var util_5 = util.isArray;
-    var util_6 = util.isBoolean;
-    var util_7 = util.isNull;
-    var util_8 = util.isNullOrUndefined;
-    var util_9 = util.isNumber;
-    var util_10 = util.isString;
-    var util_11 = util.isSymbol;
-    var util_12 = util.isUndefined;
-    var util_13 = util.isRegExp;
-    var util_14 = util.isObject;
-    var util_15 = util.isDate;
-    var util_16 = util.isError;
-    var util_17 = util.isFunction;
-    var util_18 = util.isPrimitive;
-    var util_19 = util.isBuffer;
-    var util_20 = util.log;
-    var util_21 = util.inherits;
-    var util_22 = util._extend;
-
-    var path = createCommonjsModule(function (module) {
-
-
-    var isWindows = process.platform === 'win32';
-
-
-
-    // resolves . and .. elements in a path array with directory names there
-    // must be no slashes or device names (c:\) in the array
-    // (so also no leading and trailing slashes - it does not distinguish
-    // relative and absolute paths)
-    function normalizeArray(parts, allowAboveRoot) {
-      var res = [];
-      for (var i = 0; i < parts.length; i++) {
-        var p = parts[i];
-
-        // ignore empty parts
-        if (!p || p === '.')
-          continue;
-
-        if (p === '..') {
-          if (res.length && res[res.length - 1] !== '..') {
-            res.pop();
-          } else if (allowAboveRoot) {
-            res.push('..');
-          }
-        } else {
-          res.push(p);
-        }
-      }
-
-      return res;
-    }
-
-    // returns an array with empty elements removed from either end of the input
-    // array or the original array if no elements need to be removed
-    function trimArray(arr) {
-      var lastIndex = arr.length - 1;
-      var start = 0;
-      for (; start <= lastIndex; start++) {
-        if (arr[start])
-          break;
-      }
-
-      var end = lastIndex;
-      for (; end >= 0; end--) {
-        if (arr[end])
-          break;
-      }
-
-      if (start === 0 && end === lastIndex)
-        return arr;
-      if (start > end)
-        return [];
-      return arr.slice(start, end + 1);
-    }
-
-    // Regex to split a windows path into three parts: [*, device, slash,
-    // tail] windows-only
-    var splitDeviceRe =
-        /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
-
-    // Regex to split the tail part of the above into [*, dir, basename, ext]
-    var splitTailRe =
-        /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
-
-    var win32 = {};
-
-    // Function to split a filename into [root, dir, basename, ext]
-    function win32SplitPath(filename) {
-      // Separate device+slash from tail
-      var result = splitDeviceRe.exec(filename),
-          device = (result[1] || '') + (result[2] || ''),
-          tail = result[3] || '';
-      // Split the tail into dir, basename and extension
-      var result2 = splitTailRe.exec(tail),
-          dir = result2[1],
-          basename = result2[2],
-          ext = result2[3];
-      return [device, dir, basename, ext];
-    }
-
-    function win32StatPath(path) {
-      var result = splitDeviceRe.exec(path),
-          device = result[1] || '',
-          isUnc = !!device && device[1] !== ':';
-      return {
-        device: device,
-        isUnc: isUnc,
-        isAbsolute: isUnc || !!result[2], // UNC paths are always absolute
-        tail: result[3]
-      };
-    }
-
-    function normalizeUNCRoot(device) {
-      return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
-    }
-
-    // path.resolve([from ...], to)
-    win32.resolve = function() {
-      var resolvedDevice = '',
-          resolvedTail = '',
-          resolvedAbsolute = false;
-
-      for (var i = arguments.length - 1; i >= -1; i--) {
-        var path;
-        if (i >= 0) {
-          path = arguments[i];
-        } else if (!resolvedDevice) {
-          path = process.cwd();
-        } else {
-          // Windows has the concept of drive-specific current working
-          // directories. If we've resolved a drive letter but not yet an
-          // absolute path, get cwd for that drive. We're sure the device is not
-          // an unc path at this points, because unc paths are always absolute.
-          path = process.env['=' + resolvedDevice];
-          // Verify that a drive-local cwd was found and that it actually points
-          // to our drive. If not, default to the drive's root.
-          if (!path || path.substr(0, 3).toLowerCase() !==
-              resolvedDevice.toLowerCase() + '\\') {
-            path = resolvedDevice + '\\';
-          }
-        }
-
-        // Skip empty and invalid entries
-        if (!util.isString(path)) {
-          throw new TypeError('Arguments to path.resolve must be strings');
-        } else if (!path) {
-          continue;
-        }
-
-        var result = win32StatPath(path),
-            device = result.device,
-            isUnc = result.isUnc,
-            isAbsolute = result.isAbsolute,
-            tail = result.tail;
-
-        if (device &&
-            resolvedDevice &&
-            device.toLowerCase() !== resolvedDevice.toLowerCase()) {
-          // This path points to another device so it is not applicable
-          continue;
-        }
-
-        if (!resolvedDevice) {
-          resolvedDevice = device;
-        }
-        if (!resolvedAbsolute) {
-          resolvedTail = tail + '\\' + resolvedTail;
-          resolvedAbsolute = isAbsolute;
-        }
-
-        if (resolvedDevice && resolvedAbsolute) {
-          break;
-        }
-      }
-
-      // Convert slashes to backslashes when `resolvedDevice` points to an UNC
-      // root. Also squash multiple slashes into a single one where appropriate.
-      if (isUnc) {
-        resolvedDevice = normalizeUNCRoot(resolvedDevice);
-      }
-
-      // At this point the path should be resolved to a full absolute path,
-      // but handle relative paths to be safe (might happen when process.cwd()
-      // fails)
-
-      // Normalize the tail path
-      resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/),
-                                    !resolvedAbsolute).join('\\');
-
-      return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
-             '.';
-    };
-
-
-    win32.normalize = function(path) {
-      var result = win32StatPath(path),
-          device = result.device,
-          isUnc = result.isUnc,
-          isAbsolute = result.isAbsolute,
-          tail = result.tail,
-          trailingSlash = /[\\\/]$/.test(tail);
-
-      // Normalize the tail path
-      tail = normalizeArray(tail.split(/[\\\/]+/), !isAbsolute).join('\\');
-
-      if (!tail && !isAbsolute) {
-        tail = '.';
-      }
-      if (tail && trailingSlash) {
-        tail += '\\';
-      }
-
-      // Convert slashes to backslashes when `device` points to an UNC root.
-      // Also squash multiple slashes into a single one where appropriate.
-      if (isUnc) {
-        device = normalizeUNCRoot(device);
-      }
-
-      return device + (isAbsolute ? '\\' : '') + tail;
-    };
-
-
-    win32.isAbsolute = function(path) {
-      return win32StatPath(path).isAbsolute;
-    };
-
-    win32.join = function() {
-      var paths = [];
-      for (var i = 0; i < arguments.length; i++) {
-        var arg = arguments[i];
-        if (!util.isString(arg)) {
-          throw new TypeError('Arguments to path.join must be strings');
-        }
-        if (arg) {
-          paths.push(arg);
-        }
-      }
-
-      var joined = paths.join('\\');
-
-      // Make sure that the joined path doesn't start with two slashes, because
-      // normalize() will mistake it for an UNC path then.
-      //
-      // This step is skipped when it is very clear that the user actually
-      // intended to point at an UNC path. This is assumed when the first
-      // non-empty string arguments starts with exactly two slashes followed by
-      // at least one more non-slash character.
-      //
-      // Note that for normalize() to treat a path as an UNC path it needs to
-      // have at least 2 components, so we don't filter for that here.
-      // This means that the user can use join to construct UNC paths from
-      // a server name and a share name; for example:
-      //   path.join('//server', 'share') -> '\\\\server\\share\')
-      if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
-        joined = joined.replace(/^[\\\/]{2,}/, '\\');
-      }
-
-      return win32.normalize(joined);
-    };
-
-
-    // path.relative(from, to)
-    // it will solve the relative path from 'from' to 'to', for instance:
-    // from = 'C:\\orandea\\test\\aaa'
-    // to = 'C:\\orandea\\impl\\bbb'
-    // The output of the function should be: '..\\..\\impl\\bbb'
-    win32.relative = function(from, to) {
-      from = win32.resolve(from);
-      to = win32.resolve(to);
-
-      // windows is not case sensitive
-      var lowerFrom = from.toLowerCase();
-      var lowerTo = to.toLowerCase();
-
-      var toParts = trimArray(to.split('\\'));
-
-      var lowerFromParts = trimArray(lowerFrom.split('\\'));
-      var lowerToParts = trimArray(lowerTo.split('\\'));
-
-      var length = Math.min(lowerFromParts.length, lowerToParts.length);
-      var samePartsLength = length;
-      for (var i = 0; i < length; i++) {
-        if (lowerFromParts[i] !== lowerToParts[i]) {
-          samePartsLength = i;
-          break;
-        }
-      }
-
-      if (samePartsLength == 0) {
-        return to;
-      }
-
-      var outputParts = [];
-      for (var i = samePartsLength; i < lowerFromParts.length; i++) {
-        outputParts.push('..');
-      }
-
-      outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-      return outputParts.join('\\');
-    };
-
-
-    win32._makeLong = function(path) {
-      // Note: this will *probably* throw somewhere.
-      if (!util.isString(path))
-        return path;
-
-      if (!path) {
-        return '';
-      }
-
-      var resolvedPath = win32.resolve(path);
-
-      if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
-        // path is local filesystem path, which needs to be converted
-        // to long UNC path.
-        return '\\\\?\\' + resolvedPath;
-      } else if (/^\\\\[^?.]/.test(resolvedPath)) {
-        // path is network UNC path, which needs to be converted
-        // to long UNC path.
-        return '\\\\?\\UNC\\' + resolvedPath.substring(2);
-      }
-
-      return path;
-    };
-
-
-    win32.dirname = function(path) {
-      var result = win32SplitPath(path),
-          root = result[0],
-          dir = result[1];
-
-      if (!root && !dir) {
-        // No dirname whatsoever
-        return '.';
-      }
-
-      if (dir) {
-        // It has a dirname, strip trailing slash
-        dir = dir.substr(0, dir.length - 1);
-      }
-
-      return root + dir;
-    };
-
-
-    win32.basename = function(path, ext) {
-      var f = win32SplitPath(path)[2];
-      // TODO: make this comparison case-insensitive on windows?
-      if (ext && f.substr(-1 * ext.length) === ext) {
-        f = f.substr(0, f.length - ext.length);
-      }
-      return f;
-    };
-
-
-    win32.extname = function(path) {
-      return win32SplitPath(path)[3];
-    };
-
-
-    win32.format = function(pathObject) {
-      if (!util.isObject(pathObject)) {
-        throw new TypeError(
-            "Parameter 'pathObject' must be an object, not " + typeof pathObject
-        );
-      }
-
-      var root = pathObject.root || '';
-
-      if (!util.isString(root)) {
-        throw new TypeError(
-            "'pathObject.root' must be a string or undefined, not " +
-            typeof pathObject.root
-        );
-      }
-
-      var dir = pathObject.dir;
-      var base = pathObject.base || '';
-      if (!dir) {
-        return base;
-      }
-      if (dir[dir.length - 1] === win32.sep) {
-        return dir + base;
-      }
-      return dir + win32.sep + base;
-    };
-
-
-    win32.parse = function(pathString) {
-      if (!util.isString(pathString)) {
-        throw new TypeError(
-            "Parameter 'pathString' must be a string, not " + typeof pathString
-        );
-      }
-      var allParts = win32SplitPath(pathString);
-      if (!allParts || allParts.length !== 4) {
-        throw new TypeError("Invalid path '" + pathString + "'");
-      }
-      return {
-        root: allParts[0],
-        dir: allParts[0] + allParts[1].slice(0, -1),
-        base: allParts[2],
-        ext: allParts[3],
-        name: allParts[2].slice(0, allParts[2].length - allParts[3].length)
-      };
-    };
-
-
-    win32.sep = '\\';
-    win32.delimiter = ';';
-
-
-    // Split a filename into [root, dir, basename, ext], unix version
-    // 'root' is just a slash, or nothing.
-    var splitPathRe =
-        /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
-    var posix = {};
-
-
-    function posixSplitPath(filename) {
-      return splitPathRe.exec(filename).slice(1);
-    }
-
-
-    // path.resolve([from ...], to)
-    // posix version
-    posix.resolve = function() {
-      var resolvedPath = '',
-          resolvedAbsolute = false;
-
-      for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
-        var path = (i >= 0) ? arguments[i] : process.cwd();
-
-        // Skip empty and invalid entries
-        if (!util.isString(path)) {
-          throw new TypeError('Arguments to path.resolve must be strings');
-        } else if (!path) {
-          continue;
-        }
-
-        resolvedPath = path + '/' + resolvedPath;
-        resolvedAbsolute = path[0] === '/';
-      }
-
-      // At this point the path should be resolved to a full absolute path, but
-      // handle relative paths to be safe (might happen when process.cwd() fails)
-
-      // Normalize the path
-      resolvedPath = normalizeArray(resolvedPath.split('/'),
-                                    !resolvedAbsolute).join('/');
-
-      return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-    };
-
-    // path.normalize(path)
-    // posix version
-    posix.normalize = function(path) {
-      var isAbsolute = posix.isAbsolute(path),
-          trailingSlash = path && path[path.length - 1] === '/';
-
-      // Normalize the path
-      path = normalizeArray(path.split('/'), !isAbsolute).join('/');
-
-      if (!path && !isAbsolute) {
-        path = '.';
-      }
-      if (path && trailingSlash) {
-        path += '/';
-      }
-
-      return (isAbsolute ? '/' : '') + path;
-    };
-
-    // posix version
-    posix.isAbsolute = function(path) {
-      return path.charAt(0) === '/';
-    };
-
-    // posix version
-    posix.join = function() {
-      var path = '';
-      for (var i = 0; i < arguments.length; i++) {
-        var segment = arguments[i];
-        if (!util.isString(segment)) {
-          throw new TypeError('Arguments to path.join must be strings');
-        }
-        if (segment) {
-          if (!path) {
-            path += segment;
-          } else {
-            path += '/' + segment;
-          }
-        }
-      }
-      return posix.normalize(path);
-    };
-
-
-    // path.relative(from, to)
-    // posix version
-    posix.relative = function(from, to) {
-      from = posix.resolve(from).substr(1);
-      to = posix.resolve(to).substr(1);
-
-      var fromParts = trimArray(from.split('/'));
-      var toParts = trimArray(to.split('/'));
-
-      var length = Math.min(fromParts.length, toParts.length);
-      var samePartsLength = length;
-      for (var i = 0; i < length; i++) {
-        if (fromParts[i] !== toParts[i]) {
-          samePartsLength = i;
-          break;
-        }
-      }
-
-      var outputParts = [];
-      for (var i = samePartsLength; i < fromParts.length; i++) {
-        outputParts.push('..');
-      }
-
-      outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-      return outputParts.join('/');
-    };
-
-
-    posix._makeLong = function(path) {
-      return path;
-    };
-
-
-    posix.dirname = function(path) {
-      var result = posixSplitPath(path),
-          root = result[0],
-          dir = result[1];
-
-      if (!root && !dir) {
-        // No dirname whatsoever
-        return '.';
-      }
-
-      if (dir) {
-        // It has a dirname, strip trailing slash
-        dir = dir.substr(0, dir.length - 1);
-      }
-
-      return root + dir;
-    };
-
-
-    posix.basename = function(path, ext) {
-      var f = posixSplitPath(path)[2];
-      // TODO: make this comparison case-insensitive on windows?
-      if (ext && f.substr(-1 * ext.length) === ext) {
-        f = f.substr(0, f.length - ext.length);
-      }
-      return f;
-    };
-
-
-    posix.extname = function(path) {
-      return posixSplitPath(path)[3];
-    };
-
-
-    posix.format = function(pathObject) {
-      if (!util.isObject(pathObject)) {
-        throw new TypeError(
-            "Parameter 'pathObject' must be an object, not " + typeof pathObject
-        );
-      }
-
-      var root = pathObject.root || '';
-
-      if (!util.isString(root)) {
-        throw new TypeError(
-            "'pathObject.root' must be a string or undefined, not " +
-            typeof pathObject.root
-        );
-      }
-
-      var dir = pathObject.dir ? pathObject.dir + posix.sep : '';
-      var base = pathObject.base || '';
-      return dir + base;
-    };
-
-
-    posix.parse = function(pathString) {
-      if (!util.isString(pathString)) {
-        throw new TypeError(
-            "Parameter 'pathString' must be a string, not " + typeof pathString
-        );
-      }
-      var allParts = posixSplitPath(pathString);
-      if (!allParts || allParts.length !== 4) {
-        throw new TypeError("Invalid path '" + pathString + "'");
-      }
-      allParts[1] = allParts[1] || '';
-      allParts[2] = allParts[2] || '';
-      allParts[3] = allParts[3] || '';
-
-      return {
-        root: allParts[0],
-        dir: allParts[0] + allParts[1].slice(0, -1),
-        base: allParts[2],
-        ext: allParts[3],
-        name: allParts[2].slice(0, allParts[2].length - allParts[3].length)
-      };
-    };
-
-
-    posix.sep = '/';
-    posix.delimiter = ':';
-
-
-    if (isWindows)
-      module.exports = win32;
-    else /* posix */
-      module.exports = posix;
-
-    module.exports.posix = posix;
-    module.exports.win32 = win32;
-    });
-    var path_1 = path.posix;
-    var path_2 = path.win32;
-
-    var mimeTypes = createCommonjsModule(function (module, exports) {
-
-    /**
-     * Module dependencies.
-     * @private
-     */
-
-
-    var extname = path.extname;
-
-    /**
-     * Module variables.
-     * @private
-     */
-
-    var EXTRACT_TYPE_REGEXP = /^\s*([^;\s]*)(?:;|\s|$)/;
-    var TEXT_TYPE_REGEXP = /^text\//i;
-
-    /**
-     * Module exports.
-     * @public
-     */
-
-    exports.charset = charset;
-    exports.charsets = { lookup: charset };
-    exports.contentType = contentType;
-    exports.extension = extension;
-    exports.extensions = Object.create(null);
-    exports.lookup = lookup;
-    exports.types = Object.create(null);
-
-    // Populate the extensions/types maps
-    populateMaps(exports.extensions, exports.types);
-
-    /**
-     * Get the default charset for a MIME type.
-     *
-     * @param {string} type
-     * @return {boolean|string}
-     */
-
-    function charset (type) {
-      if (!type || typeof type !== 'string') {
-        return false
-      }
-
-      // TODO: use media-typer
-      var match = EXTRACT_TYPE_REGEXP.exec(type);
-      var mime = match && mimeDb[match[1].toLowerCase()];
-
-      if (mime && mime.charset) {
-        return mime.charset
-      }
-
-      // default text/* to utf-8
-      if (match && TEXT_TYPE_REGEXP.test(match[1])) {
-        return 'UTF-8'
-      }
-
-      return false
-    }
-
-    /**
-     * Create a full Content-Type header given a MIME type or extension.
-     *
-     * @param {string} str
-     * @return {boolean|string}
-     */
-
-    function contentType (str) {
-      // TODO: should this even be in this module?
-      if (!str || typeof str !== 'string') {
-        return false
-      }
-
-      var mime = str.indexOf('/') === -1
-        ? exports.lookup(str)
-        : str;
-
-      if (!mime) {
-        return false
-      }
-
-      // TODO: use content-type or other module
-      if (mime.indexOf('charset') === -1) {
-        var charset = exports.charset(mime);
-        if (charset) mime += '; charset=' + charset.toLowerCase();
-      }
-
-      return mime
-    }
-
-    /**
-     * Get the default extension for a MIME type.
-     *
-     * @param {string} type
-     * @return {boolean|string}
-     */
-
-    function extension (type) {
-      if (!type || typeof type !== 'string') {
-        return false
-      }
-
-      // TODO: use media-typer
-      var match = EXTRACT_TYPE_REGEXP.exec(type);
-
-      // get extensions
-      var exts = match && exports.extensions[match[1].toLowerCase()];
-
-      if (!exts || !exts.length) {
-        return false
-      }
-
-      return exts[0]
-    }
-
-    /**
-     * Lookup the MIME type for a file path/extension.
-     *
-     * @param {string} path
-     * @return {boolean|string}
-     */
-
-    function lookup (path$$1) {
-      if (!path$$1 || typeof path$$1 !== 'string') {
-        return false
-      }
-
-      // get the extension ("ext" or ".ext" or full path)
-      var extension = extname('x.' + path$$1)
-        .toLowerCase()
-        .substr(1);
-
-      if (!extension) {
-        return false
-      }
-
-      return exports.types[extension] || false
-    }
-
-    /**
-     * Populate the extensions and types maps.
-     * @private
-     */
-
-    function populateMaps (extensions, types) {
-      // source preference (least -> most)
-      var preference = ['nginx', 'apache', undefined, 'iana'];
-
-      Object.keys(mimeDb).forEach(function forEachMimeType (type) {
-        var mime = mimeDb[type];
-        var exts = mime.extensions;
-
-        if (!exts || !exts.length) {
-          return
-        }
-
-        // mime -> extensions
-        extensions[type] = exts;
-
-        // extension -> mime
-        for (var i = 0; i < exts.length; i++) {
-          var extension = exts[i];
-
-          if (types[extension]) {
-            var from = preference.indexOf(mimeDb[types[extension]].source);
-            var to = preference.indexOf(mime.source);
-
-            if (types[extension] !== 'application/octet-stream' &&
-              (from > to || (from === to && types[extension].substr(0, 12) === 'application/'))) {
-              // skip the remapping
-              continue
-            }
-          }
-
-          // set the extension -> mime
-          types[extension] = type;
-        }
-      });
-    }
-    });
-    var mimeTypes_1 = mimeTypes.charset;
-    var mimeTypes_2 = mimeTypes.charsets;
-    var mimeTypes_3 = mimeTypes.contentType;
-    var mimeTypes_4 = mimeTypes.extension;
-    var mimeTypes_5 = mimeTypes.extensions;
-    var mimeTypes_6 = mimeTypes.lookup;
-    var mimeTypes_7 = mimeTypes.types;
-
+        return prev;
+    }, extToMime);
     function argumentsToString() {
         return arguments.toString();
     }
@@ -12926,15 +12298,18 @@
     }
     function mime(input) {
         if (typeof input === 'string') {
-            return mimeTypes_6(input) || undefined;
+            var ext = input.replace(/^.*\.([a-z]+)$/i, '$1');
+            return extToMime[ext];
         }
-        // TODO: detect file type of buffer
-        // if (input instanceof ArrayBuffer) {
-        //     input = new Uint8Array(input);
-        // } else {
-        //     input = new Uint8Array(input.buffer);
-        // }
-        // return filetype.call(null, input).mime;
+        else {
+            if (input instanceof ArrayBuffer) {
+                input = new Uint8Array(input);
+            }
+            else {
+                input = new Uint8Array(input.buffer);
+            }
+            return fileType_1(null, input).mime;
+        }
     }
 
     function transformFilesParameterFilter(options, chain) {
@@ -12996,8 +12371,8 @@
             this.method = options.method;
             if (options.filters) {
                 this.requestFilters = this.cloneFilters(options.filters.request);
-                this.responseErrorFilters = this.cloneFilters(options.filters.request);
-                this.responseSuccessFilters = this.cloneFilters(options.filters.request);
+                this.responseErrorFilters = this.cloneFilters(options.filters.failure);
+                this.responseSuccessFilters = this.cloneFilters(options.filters.success);
             }
             this.endpoint = options.endpoint;
             this.config = options.config;
@@ -13008,8 +12383,8 @@
                 method: this.method,
                 filters: {
                     request: this.cloneFilters(this.requestFilters),
-                    responseError: this.cloneFilters(this.responseErrorFilters),
-                    responseSuccess: this.cloneFilters(this.responseSuccessFilters),
+                    failure: this.cloneFilters(this.responseErrorFilters),
+                    success: this.cloneFilters(this.responseSuccessFilters),
                 },
                 endpoint: this.endpoint,
                 config: this.config,
@@ -13020,8 +12395,8 @@
             if (!options) {
                 options = {};
             }
-            var responseSuccessFilters = this.resolveResponseSuccessFilters(options.filters ? options.filters.responseSuccess : undefined);
-            var responseErrorFilters = this.resolveResponseErrorFilters(options.filters ? options.filters.responseError : undefined);
+            var responseSuccessFilters = this.resolveResponseSuccessFilters(options.filters ? options.filters.success : undefined);
+            var responseErrorFilters = this.resolveResponseErrorFilters(options.filters ? options.filters.failure : undefined);
             var doRequestFilter = function (requestOptions, chain) {
                 var resolvedOptions = _this.resolveRequestOptions(requestOptions);
                 return api
@@ -13041,13 +12416,16 @@
                 }
             };
             var requestFilters = this.resolveRequestFilters(options.filters ? options.filters.request : undefined, doRequestFilter);
-            return new FilterChain(requestFilters, 0).start(options);
+            return new FilterChain(requestFilters, 0).start(__assign({}, options, { apiConfig: this.config, url: this.url }));
         };
         Ajax.prototype.resolveRequestOptions = function (options) {
-            var url = '';
+            var url = options.url;
             var method = options.method || this.method;
             var queries = options.queries;
-            var credential = Object.assign({}, this.config.credential, options.credential);
+            var credential;
+            if (this.config.credential || options.credential) {
+                credential = Object.assign({}, this.config.credential, options.credential);
+            }
             var headers = Object.assign({}, this.config.headers, options.headers);
             return {
                 method: method,
@@ -13090,14 +12468,274 @@
         return Ajax;
     }());
 
+    var requestOptionFields = [
+        'pathVariables',
+        'queries',
+        'headers',
+        'formdata',
+    ];
+    function validateRequiredParameterFilters (ajaxConfig) {
+        return requestOptionFields
+            .filter(function (name) { return !!ajaxConfig[name]; })
+            .map(function (field) { return createFilter(ajaxConfig[field], field); });
+        function createFilter(paramConfigs, field) {
+            return function (options, chain) {
+                var pairs = options[field];
+                if (pairs === undefined) {
+                    pairs = options[field] = {};
+                }
+                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                    var paramConfig = paramConfigs_1[_i];
+                    var paramName = paramConfig.name;
+                    var value = void 0;
+                    if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+                        value = pairs.get(paramName);
+                    }
+                    else {
+                        value = pairs[paramName];
+                    }
+                    if (paramConfig.required !== false &&
+                        value === undefined &&
+                        paramConfig.defaultValue === undefined) {
+                        return chain.error(new Error("Required parameter '" + paramName + "' of " + field + " is missing and 'defaultValue' of api config is not defined."));
+                    }
+                }
+                return chain.next(options);
+            };
+        }
+    }
+
+    var requestOptionFields$1 = [
+        'pathVariables',
+        'queries',
+        'headers',
+        'formdata',
+    ];
+    function defaultValueFilter (ajaxConfig) {
+        return requestOptionFields$1
+            .filter(function (name) { return !!ajaxConfig[name]; })
+            .map(function (field) { return createFilter(ajaxConfig[field], field); });
+        function createFilter(paramConfigs, field) {
+            return function (options, chain) {
+                var pairs = options[field];
+                if (!pairs) {
+                    pairs = options[field] = {};
+                }
+                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                    var paramConfig = paramConfigs_1[_i];
+                    var paramName = paramConfig.name;
+                    var value = void 0;
+                    if (paramConfig.defaultValue === undefined) {
+                        return chain.next(options);
+                    }
+                    if (pairs instanceof FormData) {
+                        value = pairs.get(paramName);
+                    }
+                    else {
+                        value = pairs[paramName];
+                    }
+                    if (value === undefined) {
+                        value = paramConfig.defaultValue;
+                    }
+                    if (pairs instanceof FormData) {
+                        pairs.set(name, value);
+                    }
+                    else {
+                        pairs[name] = value;
+                    }
+                }
+                return chain.next(options);
+            };
+        }
+    }
+
+    var requestOptionFields$2 = [
+        'pathVariables',
+        'queries',
+        'headers',
+        'formdata',
+    ];
+    function optionsValidatorFilters (ajaxConfig) {
+        return requestOptionFields$2
+            .filter(function (name) { return !!ajaxConfig[name]; })
+            .map(function (field) { return createFilter(ajaxConfig[field], field); });
+        function createFilter(paramConfigs, field) {
+            return function (options, chain) {
+                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                    var paramConfig = paramConfigs_1[_i];
+                    var validator = paramConfig.validator;
+                    options = JSON.parse(JSON.stringify(options));
+                    var pairs = options[field];
+                    if (!pairs) {
+                        pairs = options[field] = {};
+                    }
+                    var paramName = paramConfig.name;
+                    var value = void 0;
+                    if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+                        value = pairs.get(paramName);
+                    }
+                    else {
+                        value = pairs[paramName];
+                    }
+                    if (validator !== undefined &&
+                        validator.call(paramConfig, value, options)) {
+                        throw new Error("Parameter '" + paramName + "' validation failed: " + value + "\r\nurl: " + ajaxConfig.url);
+                    }
+                }
+                return chain.next(options);
+            };
+        }
+    }
+
+    // const PATH_VARIABLE_REGEX = /\$\{([^\}]+)\}/g;
+    function mkreg(str) {
+        return str.replace(/([\$\[\]\(\)\{\}\^\+\.\*\?\\\-])/g, '\\$1');
+    }
+    /**
+     *
+     * @param {string} text - template string
+     * @param {string} [prefix='${'] - 占位符 前缀
+     * @param {string} [suffix='}'] - 占位符后缀
+     * @param {boolean} [useReg=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
+     */
+    function parse(text, prefix, suffix, useReg) {
+        if (prefix === void 0) { prefix = '${'; }
+        if (suffix === void 0) { suffix = '}'; }
+        if (useReg === void 0) { useReg = false; }
+        if (typeof text !== 'string') {
+            return merge.bind(null, []);
+        }
+        var prefReg = !useReg ? mkreg(prefix) : prefix;
+        var sufReg = !useReg ? mkreg(suffix) : suffix;
+        var reg = new RegExp(prefReg + "(.*?)" + sufReg, 'g');
+        var compiled = [];
+        var lastIndex = 0;
+        while (true) {
+            var result = reg.exec(text);
+            if (result === null) {
+                break;
+            }
+            var match = result[0];
+            var key = result[1];
+            var index = result.index;
+            compiled.push(textplain.bind(null, text.slice(lastIndex, index)));
+            compiled.push(placeholder.bind(null, key));
+            lastIndex = index + match.length;
+        }
+        compiled.push(textplain.bind(null, text.slice(lastIndex)));
+        return new Template(merge.bind(null, compiled));
+    }
+    function textplain(text, variables) {
+        return text;
+    }
+    function placeholder(key, variables, notFound) {
+        if (!variables) {
+            return '';
+        }
+        if (key in variables) {
+            return variables[key];
+        }
+        else if (notFound !== undefined) {
+            return notFound(key);
+        }
+        return '';
+    }
+    function merge(compiled, variables, notFound) {
+        if (!variables) {
+            variables = {};
+        }
+        return compiled.map(function (parser) { return parser(variables, notFound); }).join('');
+    }
+    var Template = /** @class */ (function () {
+        function Template(parsed) {
+            this.parsed = parsed;
+        }
+        Template.prototype.execute = function (variables, notFound) {
+            return this.parsed(variables, notFound);
+        };
+        Template.parse = parse;
+        return Template;
+    }());
+    var res = Template.parse('http://127.0.0.1:8989/api/:who/:where/', ':', '(?=(/|\\\\))', true).execute({
+        who: 'maria',
+        where: 'USA'
+    }, function notFound(key) {
+        return ':' + key;
+    });
+    console.info(res);
+
+    var templateCache = {};
+    function pathVariableFilter(options, chain) {
+        var variables = options.apiConfig.pathVariables;
+        var vars = options.pathVariables || {};
+        if (variables) {
+            variables.forEach(function (variable) {
+                var name = variable.name;
+                var defaultValue = variable.defaultValue;
+                if (vars[name] === undefined && defaultValue !== undefined) {
+                    vars[name] = defaultValue;
+                }
+            });
+        }
+        var encodedVariables = {};
+        for (var _i = 0, _a = Object.entries(vars); _i < _a.length; _i++) {
+            var _b = _a[_i], key = _b[0], value = _b[1];
+            var decoded = value;
+            try {
+                decoded = decodeURI(decoded);
+            }
+            catch (error) {
+                // ignored
+            }
+            encodedVariables[key] = encodeURI(decoded);
+        }
+        options.pathVariables = encodedVariables;
+        var template = templateCache[options.url];
+        if (!template) {
+            template = templateCache[options.url] = Template.parse(options.url, ':', '(?=(/|\\\\|\\.))', true);
+        }
+        options.url = template.execute(encodedVariables, function (key) { return ":" + key; });
+        return chain.next(options);
+    }
+
+    function queriesFilter (options, chain) {
+        var queries = options.queries || {};
+        var queriesConfig = options.apiConfig.queries;
+        if (queriesConfig) {
+            queriesConfig.forEach(function (query) {
+                var name = query.name;
+                if (query.defaultValue !== undefined &&
+                    queries[name] === undefined) {
+                    queries[name] = query.defaultValue;
+                }
+            });
+        }
+        options.queries = queries;
+        return chain.next(options);
+    }
+
+    function jsonParameterFilter(options, chain) {
+        if (options.json) {
+            if (typeof options.json === 'string') {
+                options.formdata = JSON.parse(options.json);
+            }
+            else {
+                options.formdata = options.json;
+            }
+            options.contentType = 'application/json';
+        }
+        return chain.next(options);
+    }
+
     var OPPORTUNITY_RESPONSE_ERROR = 'response-error';
     var OPPORTUNITY_REQUEST = 'request';
     var OPPORTUNITY_RESPONSE_SUCCESS = 'response-success';
     var Endpoint = /** @class */ (function () {
         function Endpoint(server, basePath) {
+            if (basePath === void 0) { basePath = ''; }
             this.server = server;
             this.basePath = basePath;
-            this.requestFilters = [];
+            this.requestFilters = [pathVariableFilter, queriesFilter];
             this.responseSuccessFilters = [];
             this.responseErrorFilters = [];
             this.apis = new Map();
@@ -13130,8 +12768,29 @@
             else if (!url) {
                 url = join(this.server, this.basePath, path || '');
             }
+            var filters = {
+                request: [],
+                success: [],
+                failure: [],
+            };
+            filters.request = filters.request
+                .concat(validateRequiredParameterFilters(config))
+                .concat(defaultValueFilter(config))
+                .concat(optionsValidatorFilters(config));
+            if (config.formdata) {
+                filters.request.unshift(jsonParameterFilter);
+            }
+            var apiFilters = config.filters;
+            if (apiFilters && apiFilters.request) {
+                if (typeof apiFilters.request === 'function') {
+                    filters.request.unshift(apiFilters.request);
+                }
+                else if (Array.isArray(apiFilters.request)) {
+                    filters.request = apiFilters.request.concat(filters.request);
+                }
+            }
             var cachedApiConfig = __assign({}, config, { url: url,
-                method: method, original: config });
+                method: method, original: config, filters: __assign({}, filters) });
             this.apis.set(name, cachedApiConfig);
             return this;
         };
@@ -13143,8 +12802,8 @@
             }
             if (filters) {
                 this.addFilters(filters.request, FilterOpportunity.REQUEST);
-                this.addFilters(filters.responseError, FilterOpportunity.RESPONSE_ERROR);
-                this.addFilters(filters.responseSuccess, FilterOpportunity.RESPONSE_SUCCESS);
+                this.addFilters(filters.failure, FilterOpportunity.RESPONSE_ERROR);
+                this.addFilters(filters.success, FilterOpportunity.RESPONSE_SUCCESS);
             }
             if (apis) {
                 Object.keys(apis).forEach(function (name) {
@@ -13166,6 +12825,7 @@
                 endpoint: this,
                 method: config.method || HttpMethod.GET,
                 config: config || {},
+                filters: config.filters,
             });
         };
         Endpoint.prototype.addFilters = function (filters, opt) {
@@ -13183,58 +12843,9 @@
         return Endpoint;
     }());
 
-    var TERMINAL_RESULT$1 = new Promise(function () { return undefined; });
-    var FilterChain$1 = /** @class */ (function () {
-        /**
-         * @constructs FilterChain
-         * @hideconstructor
-         * @param {Filter[]} filters
-         * @param {number} index
-         */
-        function FilterChain(filters, index) {
-            this.filters = filters;
-            this.index = index;
-            this.filters = filters.slice(0);
-            this.index = index;
-        }
-        FilterChain.isTerminal = function (value) {
-            return TERMINAL_RESULT$1 === value;
-        };
-        FilterChain.prototype.next = function (value) {
-            if (this.index >= this.filters.length) {
-                return this.finish(value);
-            }
-            var filter = this.filters[this.index];
-            var nextchain = this.nextchain();
-            return filter(value, nextchain);
-        };
-        FilterChain.prototype.retry = function (value) {
-            return this.chainAt(0).start(value);
-        };
-        FilterChain.prototype.start = function (value) {
-            return this.next(value);
-        };
-        FilterChain.prototype.error = function (reason) {
-            return Promise.reject(reason);
-        };
-        FilterChain.prototype.finish = function (result) {
-            return result;
-        };
-        FilterChain.prototype.terminal = function () {
-            return TERMINAL_RESULT$1;
-        };
-        FilterChain.prototype.chainAt = function (index) {
-            return new FilterChain(this.filters, index);
-        };
-        FilterChain.prototype.nextchain = function () {
-            return this.chainAt(this.index + 1);
-        };
-        return FilterChain;
-    }());
-
     var index = {
         Endpoint: Endpoint,
-        FilterChain: FilterChain$1,
+        FilterChain: FilterChain,
     };
 
     return index;
