@@ -1,5 +1,5 @@
 import { IAjaxRequestOptions } from '../types';
-import FilterChain from '../Filterchain';
+import FilterChain from '../FilterChain';
 import { isTypedArray, mime } from '../utils';
 
 export default function transformFilesParameterFilter(

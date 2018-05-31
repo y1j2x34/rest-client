@@ -1,5 +1,5 @@
 import { InternalAjaxRequestOptions } from '../types';
-import FilterChain from '../Filterchain';
+import FilterChain from '../FilterChain';
 import Template from '../Template';
 
 const templateCache: {

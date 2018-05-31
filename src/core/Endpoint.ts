@@ -1,4 +1,4 @@
-import { Filter } from './Filterchain';
+import { Filter } from './FilterChain';
 import { join as joinPath } from './path';
 import {
     IAPIConfig,

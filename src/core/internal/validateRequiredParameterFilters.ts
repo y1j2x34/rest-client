@@ -4,7 +4,7 @@ import {
     IParamConfig,
     RequestParamField,
 } from '../types';
-import FilterChain from '../Filterchain';
+import FilterChain from '../FilterChain';
 
 const requestOptionFields: RequestParamField[] = [
     'pathVariables',

@@ -7,7 +7,7 @@ import {
     InternalAjaxRequestOptions,
 } from './types';
 import Endpoint from './Endpoint';
-import FilterChain, { Filter } from './Filterchain';
+import FilterChain, { Filter } from './FilterChain';
 import { IRequestOptions } from './AjaxAPI';
 import SuperAgentAjaxAPI from '../ajax/SuperAgentAjaxAPI';
 import transformFilesParameterFilter from './internal/transformFilesParameterFilter';

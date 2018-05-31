@@ -12,7 +12,8 @@
     "removeComments": false,
     "sourceMap": true,
     "declaration": true,
-    "typeRoots": ["src/typings"]
+    "typeRoots": ["src/typings"],
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src"]
 }
