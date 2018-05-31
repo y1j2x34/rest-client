@@ -4,9 +4,10 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "baseUrl": "./",
-    "paths": {
-      "*": ["./typings/*"]
-    }
+    "typeRoots": [
+      "./typings",
+      "../node_modules/@types"
+    ]
   },
   "include": ["../src", "./"]
 }
