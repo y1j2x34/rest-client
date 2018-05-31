@@ -40,13 +40,14 @@
                 "perf",
                 "test",
                 "chore",
-                "revert"
+                "revert",
+                "travis"
             ],
             "warnOnFail": false,
             "maxSubjectLength": 72,
             "subjectPattern": ".+",
             "subjectPatternErrorMsg": "subject does not match subject pattern!",
-            "helpMessage": "\n# allowed type: feat, fix, docs, style, refactor, example, perf, test, chore, revert\n# subject no more than 50 chars\n# a body line no more than 72 chars"
+            "helpMessage": "\n# allowed type: feat, fix, docs, style, refactor, example, perf, test, chore, travis, revert\n# subject no more than 50 chars\n# a body line no more than 72 chars"
         }
     },
     "devDependencies": {
