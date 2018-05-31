@@ -26,16 +26,16 @@ export default function(
     ): (options: IAjaxRequestOptions, chain: FilterChain) => any {
         return (options: IAjaxRequestOptions, chain: FilterChain) => {
             let pairs = options[field];
-            if (!pairs) {
+            if (pairs === undefined) {
                 pairs = options[field] = {};
             }
             for (const paramConfig of paramConfigs) {
                 const paramName = paramConfig.name;
                 let value;
-                if (pairs instanceof FormData) {
+                if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
                     value = pairs.get(paramName);
                 } else {
-                    value = pairs[paramName];
+                    value = (pairs as any)[paramName];
                 }
                 if (
                     paramConfig.required !== false &&

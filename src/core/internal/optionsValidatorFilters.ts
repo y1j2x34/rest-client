@@ -34,10 +34,10 @@ export default function(
                 }
                 const paramName = paramConfig.name;
                 let value;
-                if (pairs instanceof FormData) {
+                if (typeof FormData !=='undefined' && pairs instanceof FormData) {
                     value = pairs.get(paramName);
                 } else {
-                    value = pairs[paramName];
+                    value = (pairs as any)[paramName];
                 }
                 if (
                     validator !== undefined &&
