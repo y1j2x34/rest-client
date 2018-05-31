@@ -1,6 +1,6 @@
 import { IFiltersConfig, HttpMethod, IAPIConfig, IAjaxRequestOptions, AjaxRequest } from './types';
 import Endpoint from './Endpoint';
-import { Filter } from './Filterchain';
+import { Filter } from './FilterChain';
 export declare type FiltersType = undefined | Filter | Filter[];
 export interface AjaxOptions {
     url: string;

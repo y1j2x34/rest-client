@@ -1,8 +1,8 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('superagent'), require('mime-types')) :
-    typeof define === 'function' && define.amd ? define(['superagent', 'mime-types'], factory) :
-    (global.Rest = factory(global.request,global.mimetype));
-}(this, (function (request,mimetype) { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('superagent'), require('file-type')) :
+    typeof define === 'function' && define.amd ? define(['superagent', 'file-type'], factory) :
+    (global.Rest = factory(global.request,global.filetype));
+}(this, (function (request,filetype) { 'use strict';
 
     /*! *****************************************************************************
     Copyright (c) Microsoft Corporation. All rights reserved.
@@ -42,11 +42,12 @@
         for (var _i = 0; _i < arguments.length; _i++) {
             paths[_i] = arguments[_i];
         }
+        console.info(paths);
         return paths
             .filter(function (path) { return !!path; })
             .map(function (path) {
             if (path.match(/^[a-z]+:\/{2,}.*/i)) {
-                return path;
+                return path.replace(replaceSufRegExp, '');
             }
             return path
                 .replace(replacePrefRegExp, '$1')
@@ -379,6 +380,35 @@
         return SuperAgentAjaxAPI;
     }());
 
+    /*!
+     * mime-db
+     * Copyright(c) 2014 Jonathan Ong
+     * MIT Licensed
+     */
+
+    /**
+     * Module exports.
+     */
+
+    module.exports = require('./db.json');
+
+    var db = /*#__PURE__*/Object.freeze({
+
+    });
+
+    // import * as mimetype from 'mime-types';
+    var mimeData = db;
+    var extToMime = {};
+    Object.keys(mimeData).reduce(function (prev, type) {
+        var info = mimeData[type];
+        if (info.extensions) {
+            info.extensions.reduce(function (_, ext) {
+                _[ext] = type;
+                return _;
+            }, prev);
+        }
+        return prev;
+    }, extToMime);
     function argumentsToString() {
         return arguments.toString();
     }
@@ -389,15 +419,18 @@
     }
     function mime(input) {
         if (typeof input === 'string') {
-            return mimetype.lookup(input) || undefined;
+            var ext = input.replace(/^.*\.([a-z]+)$/i, '$1');
+            return extToMime[ext];
         }
-        // TODO: detect file type of buffer
-        // if (input instanceof ArrayBuffer) {
-        //     input = new Uint8Array(input);
-        // } else {
-        //     input = new Uint8Array(input.buffer);
-        // }
-        // return filetype.call(null, input).mime;
+        else {
+            if (input instanceof ArrayBuffer) {
+                input = new Uint8Array(input);
+            }
+            else {
+                input = new Uint8Array(input.buffer);
+            }
+            return filetype.call(null, input).mime;
+        }
     }
 
     function transformFilesParameterFilter(options, chain) {
@@ -459,8 +492,8 @@
             this.method = options.method;
             if (options.filters) {
                 this.requestFilters = this.cloneFilters(options.filters.request);
-                this.responseErrorFilters = this.cloneFilters(options.filters.request);
-                this.responseSuccessFilters = this.cloneFilters(options.filters.request);
+                this.responseErrorFilters = this.cloneFilters(options.filters.failure);
+                this.responseSuccessFilters = this.cloneFilters(options.filters.success);
             }
             this.endpoint = options.endpoint;
             this.config = options.config;
@@ -471,8 +504,8 @@
                 method: this.method,
                 filters: {
                     request: this.cloneFilters(this.requestFilters),
-                    responseError: this.cloneFilters(this.responseErrorFilters),
-                    responseSuccess: this.cloneFilters(this.responseSuccessFilters),
+                    failure: this.cloneFilters(this.responseErrorFilters),
+                    success: this.cloneFilters(this.responseSuccessFilters),
                 },
                 endpoint: this.endpoint,
                 config: this.config,
@@ -483,8 +516,8 @@
             if (!options) {
                 options = {};
             }
-            var responseSuccessFilters = this.resolveResponseSuccessFilters(options.filters ? options.filters.responseSuccess : undefined);
-            var responseErrorFilters = this.resolveResponseErrorFilters(options.filters ? options.filters.responseError : undefined);
+            var responseSuccessFilters = this.resolveResponseSuccessFilters(options.filters ? options.filters.success : undefined);
+            var responseErrorFilters = this.resolveResponseErrorFilters(options.filters ? options.filters.failure : undefined);
             var doRequestFilter = function (requestOptions, chain) {
                 var resolvedOptions = _this.resolveRequestOptions(requestOptions);
                 return api
@@ -504,13 +537,16 @@
                 }
             };
             var requestFilters = this.resolveRequestFilters(options.filters ? options.filters.request : undefined, doRequestFilter);
-            return new FilterChain(requestFilters, 0).start(options);
+            return new FilterChain(requestFilters, 0).start(__assign({}, options, { apiConfig: this.config, url: this.url }));
         };
         Ajax.prototype.resolveRequestOptions = function (options) {
-            var url = '';
+            var url = options.url;
             var method = options.method || this.method;
             var queries = options.queries;
-            var credential = Object.assign({}, this.config.credential, options.credential);
+            var credential;
+            if (this.config.credential || options.credential) {
+                credential = Object.assign({}, this.config.credential, options.credential);
+            }
             var headers = Object.assign({}, this.config.headers, options.headers);
             return {
                 method: method,
@@ -553,14 +589,274 @@
         return Ajax;
     }());
 
+    var requestOptionFields = [
+        'pathVariables',
+        'queries',
+        'headers',
+        'formdata',
+    ];
+    function validateRequiredParameterFilters (ajaxConfig) {
+        return requestOptionFields
+            .filter(function (name) { return !!ajaxConfig[name]; })
+            .map(function (field) { return createFilter(ajaxConfig[field], field); });
+        function createFilter(paramConfigs, field) {
+            return function (options, chain) {
+                var pairs = options[field];
+                if (pairs === undefined) {
+                    pairs = options[field] = {};
+                }
+                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                    var paramConfig = paramConfigs_1[_i];
+                    var paramName = paramConfig.name;
+                    var value = void 0;
+                    if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+                        value = pairs.get(paramName);
+                    }
+                    else {
+                        value = pairs[paramName];
+                    }
+                    if (paramConfig.required !== false &&
+                        value === undefined &&
+                        paramConfig.defaultValue === undefined) {
+                        return chain.error(new Error("Required parameter '" + paramName + "' of " + field + " is missing and 'defaultValue' of api config is not defined."));
+                    }
+                }
+                return chain.next(options);
+            };
+        }
+    }
+
+    var requestOptionFields$1 = [
+        'pathVariables',
+        'queries',
+        'headers',
+        'formdata',
+    ];
+    function defaultValueFilter (ajaxConfig) {
+        return requestOptionFields$1
+            .filter(function (name) { return !!ajaxConfig[name]; })
+            .map(function (field) { return createFilter(ajaxConfig[field], field); });
+        function createFilter(paramConfigs, field) {
+            return function (options, chain) {
+                var pairs = options[field];
+                if (!pairs) {
+                    pairs = options[field] = {};
+                }
+                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                    var paramConfig = paramConfigs_1[_i];
+                    var paramName = paramConfig.name;
+                    var value = void 0;
+                    if (paramConfig.defaultValue === undefined) {
+                        return chain.next(options);
+                    }
+                    if (pairs instanceof FormData) {
+                        value = pairs.get(paramName);
+                    }
+                    else {
+                        value = pairs[paramName];
+                    }
+                    if (value === undefined) {
+                        value = paramConfig.defaultValue;
+                    }
+                    if (pairs instanceof FormData) {
+                        pairs.set(name, value);
+                    }
+                    else {
+                        pairs[name] = value;
+                    }
+                }
+                return chain.next(options);
+            };
+        }
+    }
+
+    var requestOptionFields$2 = [
+        'pathVariables',
+        'queries',
+        'headers',
+        'formdata',
+    ];
+    function optionsValidatorFilters (ajaxConfig) {
+        return requestOptionFields$2
+            .filter(function (name) { return !!ajaxConfig[name]; })
+            .map(function (field) { return createFilter(ajaxConfig[field], field); });
+        function createFilter(paramConfigs, field) {
+            return function (options, chain) {
+                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                    var paramConfig = paramConfigs_1[_i];
+                    var validator = paramConfig.validator;
+                    options = JSON.parse(JSON.stringify(options));
+                    var pairs = options[field];
+                    if (!pairs) {
+                        pairs = options[field] = {};
+                    }
+                    var paramName = paramConfig.name;
+                    var value = void 0;
+                    if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+                        value = pairs.get(paramName);
+                    }
+                    else {
+                        value = pairs[paramName];
+                    }
+                    if (validator !== undefined &&
+                        validator.call(paramConfig, value, options)) {
+                        throw new Error("Parameter '" + paramName + "' validation failed: " + value + "\r\nurl: " + ajaxConfig.url);
+                    }
+                }
+                return chain.next(options);
+            };
+        }
+    }
+
+    // const PATH_VARIABLE_REGEX = /\$\{([^\}]+)\}/g;
+    function mkreg(str) {
+        return str.replace(/([\$\[\]\(\)\{\}\^\+\.\*\?\\\-])/g, '\\$1');
+    }
+    /**
+     *
+     * @param {string} text - template string
+     * @param {string} [prefix='${'] - 占位符 前缀
+     * @param {string} [suffix='}'] - 占位符后缀
+     * @param {boolean} [useReg=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
+     */
+    function parse(text, prefix, suffix, useReg) {
+        if (prefix === void 0) { prefix = '${'; }
+        if (suffix === void 0) { suffix = '}'; }
+        if (useReg === void 0) { useReg = false; }
+        if (typeof text !== 'string') {
+            return merge.bind(null, []);
+        }
+        var prefReg = !useReg ? mkreg(prefix) : prefix;
+        var sufReg = !useReg ? mkreg(suffix) : suffix;
+        var reg = new RegExp(prefReg + "(.*?)" + sufReg, 'g');
+        var compiled = [];
+        var lastIndex = 0;
+        while (true) {
+            var result = reg.exec(text);
+            if (result === null) {
+                break;
+            }
+            var match = result[0];
+            var key = result[1];
+            var index = result.index;
+            compiled.push(textplain.bind(null, text.slice(lastIndex, index)));
+            compiled.push(placeholder.bind(null, key));
+            lastIndex = index + match.length;
+        }
+        compiled.push(textplain.bind(null, text.slice(lastIndex)));
+        return new Template(merge.bind(null, compiled));
+    }
+    function textplain(text, variables) {
+        return text;
+    }
+    function placeholder(key, variables, notFound) {
+        if (!variables) {
+            return '';
+        }
+        if (key in variables) {
+            return variables[key];
+        }
+        else if (notFound !== undefined) {
+            return notFound(key);
+        }
+        return '';
+    }
+    function merge(compiled, variables, notFound) {
+        if (!variables) {
+            variables = {};
+        }
+        return compiled.map(function (parser) { return parser(variables, notFound); }).join('');
+    }
+    var Template = /** @class */ (function () {
+        function Template(parsed) {
+            this.parsed = parsed;
+        }
+        Template.prototype.execute = function (variables, notFound) {
+            return this.parsed(variables, notFound);
+        };
+        Template.parse = parse;
+        return Template;
+    }());
+    var res = Template.parse('http://127.0.0.1:8989/api/:who/:where/', ':', '(?=(/|\\\\))', true).execute({
+        who: 'maria',
+        where: 'USA'
+    }, function notFound(key) {
+        return ':' + key;
+    });
+    console.info(res);
+
+    var templateCache = {};
+    function pathVariableFilter(options, chain) {
+        var variables = options.apiConfig.pathVariables;
+        var vars = options.pathVariables || {};
+        if (variables) {
+            variables.forEach(function (variable) {
+                var name = variable.name;
+                var defaultValue = variable.defaultValue;
+                if (vars[name] === undefined && defaultValue !== undefined) {
+                    vars[name] = defaultValue;
+                }
+            });
+        }
+        var encodedVariables = {};
+        for (var _i = 0, _a = Object.entries(vars); _i < _a.length; _i++) {
+            var _b = _a[_i], key = _b[0], value = _b[1];
+            var decoded = value;
+            try {
+                decoded = decodeURI(decoded);
+            }
+            catch (error) {
+                // ignored
+            }
+            encodedVariables[key] = encodeURI(decoded);
+        }
+        options.pathVariables = encodedVariables;
+        var template = templateCache[options.url];
+        if (!template) {
+            template = templateCache[options.url] = Template.parse(options.url, ':', '(?=(/|\\\\|\\.))', true);
+        }
+        options.url = template.execute(encodedVariables, function (key) { return ":" + key; });
+        return chain.next(options);
+    }
+
+    function queriesFilter (options, chain) {
+        var queries = options.queries || {};
+        var queriesConfig = options.apiConfig.queries;
+        if (queriesConfig) {
+            queriesConfig.forEach(function (query) {
+                var name = query.name;
+                if (query.defaultValue !== undefined &&
+                    queries[name] === undefined) {
+                    queries[name] = query.defaultValue;
+                }
+            });
+        }
+        options.queries = queries;
+        return chain.next(options);
+    }
+
+    function jsonParameterFilter(options, chain) {
+        if (options.json) {
+            if (typeof options.json === 'string') {
+                options.formdata = JSON.parse(options.json);
+            }
+            else {
+                options.formdata = options.json;
+            }
+            options.contentType = 'application/json';
+        }
+        return chain.next(options);
+    }
+
     var OPPORTUNITY_RESPONSE_ERROR = 'response-error';
     var OPPORTUNITY_REQUEST = 'request';
     var OPPORTUNITY_RESPONSE_SUCCESS = 'response-success';
     var Endpoint = /** @class */ (function () {
         function Endpoint(server, basePath) {
+            if (basePath === void 0) { basePath = ''; }
             this.server = server;
             this.basePath = basePath;
-            this.requestFilters = [];
+            this.requestFilters = [pathVariableFilter, queriesFilter];
             this.responseSuccessFilters = [];
             this.responseErrorFilters = [];
             this.apis = new Map();
@@ -593,8 +889,29 @@
             else if (!url) {
                 url = join(this.server, this.basePath, path || '');
             }
+            var filters = {
+                request: [],
+                success: [],
+                failure: [],
+            };
+            filters.request = filters.request
+                .concat(validateRequiredParameterFilters(config))
+                .concat(defaultValueFilter(config))
+                .concat(optionsValidatorFilters(config));
+            if (config.formdata) {
+                filters.request.unshift(jsonParameterFilter);
+            }
+            var apiFilters = config.filters;
+            if (apiFilters && apiFilters.request) {
+                if (typeof apiFilters.request === 'function') {
+                    filters.request.unshift(apiFilters.request);
+                }
+                else if (Array.isArray(apiFilters.request)) {
+                    filters.request = apiFilters.request.concat(filters.request);
+                }
+            }
             var cachedApiConfig = __assign({}, config, { url: url,
-                method: method, original: config });
+                method: method, original: config, filters: __assign({}, filters) });
             this.apis.set(name, cachedApiConfig);
             return this;
         };
@@ -606,8 +923,8 @@
             }
             if (filters) {
                 this.addFilters(filters.request, FilterOpportunity.REQUEST);
-                this.addFilters(filters.responseError, FilterOpportunity.RESPONSE_ERROR);
-                this.addFilters(filters.responseSuccess, FilterOpportunity.RESPONSE_SUCCESS);
+                this.addFilters(filters.failure, FilterOpportunity.RESPONSE_ERROR);
+                this.addFilters(filters.success, FilterOpportunity.RESPONSE_SUCCESS);
             }
             if (apis) {
                 Object.keys(apis).forEach(function (name) {
@@ -629,6 +946,7 @@
                 endpoint: this,
                 method: config.method || HttpMethod.GET,
                 config: config || {},
+                filters: config.filters,
             });
         };
         Endpoint.prototype.addFilters = function (filters, opt) {
@@ -646,58 +964,9 @@
         return Endpoint;
     }());
 
-    var TERMINAL_RESULT$1 = new Promise(function () { return undefined; });
-    var FilterChain$1 = /** @class */ (function () {
-        /**
-         * @constructs FilterChain
-         * @hideconstructor
-         * @param {Filter[]} filters
-         * @param {number} index
-         */
-        function FilterChain(filters, index) {
-            this.filters = filters;
-            this.index = index;
-            this.filters = filters.slice(0);
-            this.index = index;
-        }
-        FilterChain.isTerminal = function (value) {
-            return TERMINAL_RESULT$1 === value;
-        };
-        FilterChain.prototype.next = function (value) {
-            if (this.index >= this.filters.length) {
-                return this.finish(value);
-            }
-            var filter = this.filters[this.index];
-            var nextchain = this.nextchain();
-            return filter(value, nextchain);
-        };
-        FilterChain.prototype.retry = function (value) {
-            return this.chainAt(0).start(value);
-        };
-        FilterChain.prototype.start = function (value) {
-            return this.next(value);
-        };
-        FilterChain.prototype.error = function (reason) {
-            return Promise.reject(reason);
-        };
-        FilterChain.prototype.finish = function (result) {
-            return result;
-        };
-        FilterChain.prototype.terminal = function () {
-            return TERMINAL_RESULT$1;
-        };
-        FilterChain.prototype.chainAt = function (index) {
-            return new FilterChain(this.filters, index);
-        };
-        FilterChain.prototype.nextchain = function () {
-            return this.chainAt(this.index + 1);
-        };
-        return FilterChain;
-    }());
-
     var index = {
         Endpoint: Endpoint,
-        FilterChain: FilterChain$1,
+        FilterChain: FilterChain,
     };
 
     return index;
