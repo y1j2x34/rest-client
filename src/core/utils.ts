@@ -26,17 +26,26 @@ function argumentsToString() {
 }
 const ARGUMENT_TO_STRING = argumentsToString();
 
-export const isArgument = (arg: any) =>
-    arg && arg.toString() === ARGUMENT_TO_STRING;
+export const isArgument = (arg: any):boolean =>
+    !!arg && arg.toString() === ARGUMENT_TO_STRING;
 
 export function toArray<T>(...args: any[]): T[] {
-    if (this.isArgument(args[0])) {
-        return toArray.apply(null, args[0]);
-    } else {
-        return args;
+    if(args.length === 1) {
+        if(args[0] === undefined || args[0] === null) {
+            return [];
+        } else if(Array.isArray(args[0])) {
+            return args[0];
+        }
     }
+    if (isArgument(args[0])) {
+        return toArray.apply(null, args[0]);
+    }
+    return args;
 }
 export function isTypedArray(value: any): boolean {
+    if(value === undefined || value === null) {
+        return false;
+    }
     return (
         Object.getPrototypeOf(Object.getPrototypeOf(value)).constructor.name ===
         'TypedArray'
