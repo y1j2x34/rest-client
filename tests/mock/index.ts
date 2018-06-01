@@ -1,6 +1,5 @@
 import * as request from 'superagent';
 import mocker from './mocker';
-console.info(mocker);
 
 const mock = mocker(request);
 mock.timeout = 100;

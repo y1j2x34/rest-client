@@ -25,7 +25,7 @@
         "format": "prettier --write \"{src,tests}/**/*.{js,jsx,ts,tsx}\"",
         "lint": "tslint --format verbose --fix --project tsconfig.json",
         "postlint": "npm run format",
-        "test": "mocha --opts mocha.opts tests/specs/\\**\\*.test.ts",
+        "test": "mocha --opts mocha.opts tests/specs/**/*.test.ts",
         "coverage": "nyc npm test",
         "coveralls": "nyc report --reporter=text-lcov | coveralls"
     },
