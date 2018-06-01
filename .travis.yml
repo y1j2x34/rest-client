@@ -13,8 +13,8 @@ install:
     - npm install
 
 script:
-    - npm coverage
-    - npm coveralls
+    - npm run coverage
+    - npm run coveralls
     - npm run build
 
 after_success:
