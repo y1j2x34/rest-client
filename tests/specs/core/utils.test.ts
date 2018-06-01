@@ -18,7 +18,6 @@ describe('test utils.isArgument', () => {
         expect(isArgument(null)).to.false
     });
     it('string should not be argument', () => {
-        console.info(isArgument(''));
         expect(isArgument('')).to.false
     });
 })
