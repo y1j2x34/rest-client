@@ -26,7 +26,8 @@
         "lint": "tslint --format verbose --fix --project tsconfig.json",
         "postlint": "npm run format",
         "test": "mocha --opts mocha.opts tests/specs/\\**\\*.test.ts",
-        "coverage": "nyc npm test"
+        "coverage": "nyc npm test",
+        "coveralls": "nyc report --reporter=text-lcov | coveralls"
     },
     "config": {
         "validate-commit-msg": {
@@ -56,6 +57,7 @@
         "@types/mocha": "^5.2.0",
         "@types/superagent": "^3.5.8",
         "chai": "^4.1.2",
+        "coveralls": "^3.0.1",
         "express": "^4.16.3",
         "fs-extra": "^6.0.1",
         "husky": "^0.14.3",
