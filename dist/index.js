@@ -414,6 +414,9 @@
     }
     var ARGUMENT_TO_STRING = argumentsToString();
     function isTypedArray(value) {
+        if (value === undefined || value === null) {
+            return false;
+        }
         return (Object.getPrototypeOf(Object.getPrototypeOf(value)).constructor.name ===
             'TypedArray');
     }
