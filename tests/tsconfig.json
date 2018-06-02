@@ -4,6 +4,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "baseUrl": "./",
+    "importHelpers": true,
     "typeRoots": [
       "./typings",
       "../node_modules/@types"

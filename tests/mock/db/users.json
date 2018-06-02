@@ -1,0 +1,20 @@
+{
+  "0": {
+    "id": 0,
+    "username": "anonymous",
+    "age": null,
+    "role": "master"
+  },
+  "1": {
+    "id": 1,
+    "username": "Tom",
+    "age": 2,
+    "role": "hunter"
+  },
+  "2": {
+    "id": 2,
+    "username": "Jerry",
+    "age": 1,
+    "role": "mouse"
+  }
+}

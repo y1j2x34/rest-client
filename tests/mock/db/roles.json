@@ -1,0 +1,14 @@
+{
+  "master": {
+    "id": "master",
+    "behaviors": ["work", "sweep", "feed"]
+  },
+  "hunter": {
+    "id": "hunter",
+    "behaviors": ["eat", "sleep", "catch"]
+  },
+  "mouse": {
+    "id": "mouse",
+    "behaviors": ["steal", "sleep", "eat", "escape"]
+  }
+}
