@@ -3,6 +3,9 @@ import {isArgument, toArray, isTypedArray, mime} from '../../../src/core/utils';
 import * as db from 'mime-db';
 
 describe('test utils.isArgument', () => {
+    it('utils.isArgument should be an function', () => {
+        expect(typeof isArgument).eql('function');
+    });
     it('arguments should be argument', () => {
         expect((function anonymous() {
             return isArgument(arguments);
@@ -23,6 +26,9 @@ describe('test utils.isArgument', () => {
 })
 
 describe('test utils.toArray', () => {
+    it('utils.toArray should be an function', () => {
+        expect(typeof toArray).eql('function');
+    })
     it('toArray() should be empty array', () => {
         expect(toArray()).eql([])
     })
@@ -42,50 +48,55 @@ describe('test utils.toArray', () => {
         expect((function() {
             return toArray(arguments);
         }).apply(null, args)).eql(args);
-    });
+    })
     it('toArray(anArray) should be anArray', () => {
         const arr = [1, 2, 3, 4, 5];
         expect(toArray(arr))
             .to
             .equal(arr);
-    });
+    })
 });
 
 describe('test utils.isTypedArray', () => {
     const buffer = new ArrayBuffer(1024);
+    it('utils.isTypedArray should be an function', () => {
+        expect(typeof isTypedArray).eql('function');
+    })
     it('undefined should not be TypedArray', () => {
         expect(isTypedArray(undefined)).to.false;
-    });
+    })
     it('null should not be TypedArray', () => {
         expect(isTypedArray(null)).to.false;
-    });
-    it('Uint8Array should be TypedArray', () => {
-        const uint8 = new Uint8Array(buffer);
-        expect(isTypedArray(uint8)).to.true;
     })
-    it('Uint16Array should be TypedArray', () => {
-        const uint8 = new Uint16Array(buffer);
-        expect(isTypedArray(uint8)).to.true;
-    })
-    it('Uint32Array should be TypedArray', () => {
-        const uint8 = new Uint32Array(buffer);
-        expect(isTypedArray(uint8)).to.true;
-    })
-    it('Int8Array should be TypedArray', () => {
-        const uint8 = new Int8Array(buffer);
-        expect(isTypedArray(uint8)).to.true;
-    })
-    it('Int16Array should be TypedArray', () => {
-        const uint8 = new Int16Array(buffer);
-        expect(isTypedArray(uint8)).to.true;
-    })
-    it('Uint8ClampedArray should be TypedArray', () => {
-        const uint8 = new Uint8ClampedArray(buffer);
-        expect(isTypedArray(uint8)).to.true;
-    })
-    it('Uint8ClampedArray should be TypedArray', () => {
-        const uint8 = new Uint8ClampedArray(buffer);
-        expect(isTypedArray(uint8)).to.true;
+    describe('All of these types should be TypedArray ', () => {
+        it('Uint8Array should be TypedArray', () => {
+            const uint8 = new Uint8Array(buffer);
+            expect(isTypedArray(uint8)).to.true;
+        })
+        it('Uint16Array should be TypedArray', () => {
+            const uint16 = new Uint16Array(buffer);
+            expect(isTypedArray(uint16)).to.true;
+        })
+        it('Uint32Array should be TypedArray', () => {
+            const uint32 = new Uint32Array(buffer);
+            expect(isTypedArray(uint32)).to.true;
+        })
+        it('Int8Array should be TypedArray', () => {
+            const int8 = new Int8Array(buffer);
+            expect(isTypedArray(int8)).to.true;
+        })
+        it('Int16Array should be TypedArray', () => {
+            const int16 = new Int16Array(buffer);
+            expect(isTypedArray(int16)).to.true;
+        })
+        it('Int32Array should be TypedArray', () => {
+            const int32 = new Int32Array(buffer);
+            expect(isTypedArray(int32)).to.true;
+        })
+        it('Uint8ClampedArray should be TypedArray', () => {
+            const uint8Clamped = new Uint8ClampedArray(buffer);
+            expect(isTypedArray(uint8Clamped)).to.true;
+        })
     })
     it('string should not be TypedArray', () => {
         expect(isTypedArray('')).to.false
@@ -117,6 +128,9 @@ describe('test utils.mime', () => {
             }
             return prev;
         }, extToMime);
+    });
+    it('utils.mime should be an function', () => {
+        expect(typeof mime).eql('function');
     });
     it('all extension\'s mime-type should be correct', () => {
         for(const [ext, mimeType] of Object.entries(extToMime)) {
