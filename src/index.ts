@@ -1,7 +1,2 @@
-import Endpoint from './core/Endpoint';
-import FilterChain from './core/FilterChain';
-
-export default {
-    Endpoint,
-    FilterChain,
-};
+export {default as Endpoint} from './core/Endpoint';
+export {default as FilterChain} from './core/FilterChain';
