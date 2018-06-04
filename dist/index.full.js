@@ -1,8 +1,8 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-    typeof define === 'function' && define.amd ? define(factory) :
-    (global.Rest = factory());
-}(this, (function () { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+    typeof define === 'function' && define.amd ? define(['exports'], factory) :
+    (factory((global.Rest = {})));
+}(this, (function (exports) { 'use strict';
 
     /*! *****************************************************************************
     Copyright (c) Microsoft Corporation. All rights reserved.
@@ -12590,50 +12590,15 @@
         }
     }
 
-    // const PATH_VARIABLE_REGEX = /\$\{([^\}]+)\}/g;
-    function mkreg(str) {
+    function escapeRegex(str) {
         return str.replace(/([\$\[\]\(\)\{\}\^\+\.\*\?\\\-])/g, '\\$1');
-    }
-    /**
-     *
-     * @param {string} text - template string
-     * @param {string} [prefix='${'] - 占位符 前缀
-     * @param {string} [suffix='}'] - 占位符后缀
-     * @param {boolean} [useReg=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
-     */
-    function parse(text, prefix, suffix, useReg) {
-        if (prefix === void 0) { prefix = '${'; }
-        if (suffix === void 0) { suffix = '}'; }
-        if (useReg === void 0) { useReg = false; }
-        if (typeof text !== 'string') {
-            return merge.bind(null, []);
-        }
-        var prefReg = !useReg ? mkreg(prefix) : prefix;
-        var sufReg = !useReg ? mkreg(suffix) : suffix;
-        var reg = new RegExp(prefReg + "(.*?)" + sufReg, 'g');
-        var compiled = [];
-        var lastIndex = 0;
-        while (true) {
-            var result = reg.exec(text);
-            if (result === null) {
-                break;
-            }
-            var match = result[0];
-            var key = result[1];
-            var index = result.index;
-            compiled.push(textplain.bind(null, text.slice(lastIndex, index)));
-            compiled.push(placeholder.bind(null, key));
-            lastIndex = index + match.length;
-        }
-        compiled.push(textplain.bind(null, text.slice(lastIndex)));
-        return new Template(merge.bind(null, compiled));
     }
     function textplain(text, variables) {
         return text;
     }
     function placeholder(key, variables, notFound) {
         if (!variables) {
-            return '';
+            return notFound !== undefined ? notFound(key) : '';
         }
         if (key in variables) {
             return variables[key];
@@ -12656,18 +12621,48 @@
         Template.prototype.execute = function (variables, notFound) {
             return this.parsed(variables, notFound);
         };
-        Template.parse = parse;
         return Template;
     }());
-    var res = Template.parse('http://127.0.0.1:8989/api/:who/:where/', ':', '(?=(/|\\\\))', true).execute({
-        who: 'maria',
-        where: 'USA'
-    }, function notFound(key) {
-        return ':' + key;
-    });
-    console.info(res);
+    var TemplateParser = /** @class */ (function () {
+        /**
+         * @param {string} [prefix='${'] - 占位符 前缀
+         * @param {string} [suffix='}'] - 占位符后缀
+         * @param {boolean} [escape=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
+         */
+        function TemplateParser(prefix, suffix, escape) {
+            if (prefix === void 0) { prefix = '${'; }
+            if (suffix === void 0) { suffix = '}'; }
+            if (escape === void 0) { escape = false; }
+            var prefReg = !escape ? escapeRegex(prefix) : prefix;
+            var sufReg = !escape ? escapeRegex(suffix) : suffix;
+            this.regex = new RegExp(prefReg + "(.*?)" + sufReg, 'g');
+        }
+        TemplateParser.prototype.parse = function (text) {
+            if (typeof text !== 'string') {
+                return merge.bind(null, []);
+            }
+            var compiled = [];
+            var lastIndex = 0;
+            while (true) {
+                var result = this.regex.exec(text);
+                if (result === null) {
+                    break;
+                }
+                var match = result[0];
+                var key = result[1];
+                var index = result.index;
+                compiled.push(textplain.bind(null, text.slice(lastIndex, index)));
+                compiled.push(placeholder.bind(null, key));
+                lastIndex = index + match.length;
+            }
+            compiled.push(textplain.bind(null, text.slice(lastIndex)));
+            return new Template(merge.bind(null, compiled));
+        };
+        return TemplateParser;
+    }());
 
     var templateCache = {};
+    var pathTemplateParser = new TemplateParser(':', '(?=(/|\\\\|\\.))', true);
     function pathVariableFilter(options, chain) {
         var variables = options.apiConfig.pathVariables;
         var vars = options.pathVariables || {};
@@ -12695,7 +12690,7 @@
         options.pathVariables = encodedVariables;
         var template = templateCache[options.url];
         if (!template) {
-            template = templateCache[options.url] = Template.parse(options.url, ':', '(?=(/|\\\\|\\.))', true);
+            template = templateCache[options.url] = pathTemplateParser.parse(options.url);
         }
         options.url = template.execute(encodedVariables, function (key) { return ":" + key; });
         return chain.next(options);
@@ -12846,12 +12841,10 @@
         return Endpoint;
     }());
 
-    var index = {
-        Endpoint: Endpoint,
-        FilterChain: FilterChain,
-    };
+    exports.Endpoint = Endpoint;
+    exports.FilterChain = FilterChain;
 
-    return index;
+    Object.defineProperty(exports, '__esModule', { value: true });
 
 })));
 //# sourceMappingURL=index.full.js.map
