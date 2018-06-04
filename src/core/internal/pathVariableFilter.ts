@@ -1,10 +1,12 @@
 import { InternalAjaxRequestOptions } from '../types';
 import FilterChain from '../FilterChain';
-import Template from '../Template';
+import TemplateParser, { Template } from '../Template';
 
 const templateCache: {
     [url: string]: Template;
 } = {};
+
+const pathTemplateParser = new TemplateParser(':', '(?=(/|\\\\|\\.))', true);
 
 export default function pathVariableFilter(
     options: InternalAjaxRequestOptions,
@@ -39,12 +41,7 @@ export default function pathVariableFilter(
 
     let template = templateCache[options.url];
     if (!template) {
-        template = templateCache[options.url] = Template.parse(
-            options.url,
-            ':',
-            '(?=(/|\\\\|\\.))',
-            true
-        );
+        template = templateCache[options.url] = pathTemplateParser.parse( options.url );
     }
     options.url = template.execute(encodedVariables, (key) => `:${key}`);
 
