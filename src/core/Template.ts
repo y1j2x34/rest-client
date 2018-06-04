@@ -20,7 +20,7 @@ function textplain(text: string, variables?: TemplateVariales) {
 
 function placeholder(key: string, variables: TemplateVariales, notFound?: notFoundCallback) {
     if (!variables) {
-        return '';
+        return notFound !== undefined ? notFound(key) : '';
     }
     if(key in variables) {
         return variables[key];
