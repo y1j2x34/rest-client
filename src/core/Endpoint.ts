@@ -13,6 +13,8 @@ import optionsValidatorFilters from './internal/optionsValidatorFilters';
 import pathVariableFilter from './internal/pathVariableFilter';
 import queriesFilter from './internal/queriesFilter';
 import jsonParameterFilter from './internal/jsonParameterFilter';
+import IAjaxAPI from './AjaxAPI';
+import SuperAgentAjaxAPI from '../ajax/SuperAgentAjaxAPI';
 
 type ComplexFiltersType = Filter | Filter[] | undefined;
 
@@ -24,6 +26,8 @@ interface ICachedAPIConfig extends IAPIConfig {
     original: IAPIConfig;
 }
 
+const superAgentAjaxAPI = new SuperAgentAjaxAPI();
+
 export default class Endpoint {
     public static OPPORTUNITY_REQUEST: string = OPPORTUNITY_REQUEST;
     public static OPPORTUNITY_RESPONSE_ERROR: string = OPPORTUNITY_RESPONSE_ERROR;
@@ -34,7 +38,7 @@ export default class Endpoint {
     public responseErrorFilters: Filter[] = [];
     private apis: Map<string, ICachedAPIConfig> = new Map();
 
-    constructor(private server: string, private basePath: string = '') {}
+    constructor(private server: string, private basePath: string = '', private ajaxAPI: IAjaxAPI = superAgentAjaxAPI) {}
 
     public addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint {
         switch (opportunity) {
@@ -144,7 +148,7 @@ export default class Endpoint {
         if (!config) {
             return;
         }
-        return new Ajax({
+        return new Ajax(this.ajaxAPI, {
             url: config.url || '',
             endpoint: this,
             method: config.method || HttpMethod.GET,

@@ -8,8 +8,7 @@ import {
 } from './types';
 import Endpoint from './Endpoint';
 import FilterChain, { Filter } from './FilterChain';
-import { IRequestOptions } from './AjaxAPI';
-import SuperAgentAjaxAPI from '../ajax/SuperAgentAjaxAPI';
+import IAjaxAPI, { IRequestOptions } from './AjaxAPI';
 import transformFilesParameterFilter from './internal/transformFilesParameterFilter';
 
 export type FiltersType = undefined | Filter | Filter[];
@@ -22,8 +21,6 @@ export interface AjaxOptions {
     config: IAPIConfig;
 }
 
-const api = new SuperAgentAjaxAPI();
-
 export default class Ajax {
     private url: string;
     private requestFilters: Filter[];
@@ -32,7 +29,7 @@ export default class Ajax {
     private endpoint: Endpoint;
     private method: HttpMethod;
     private config: IAPIConfig;
-    constructor(options: AjaxOptions) {
+    constructor(private ajaxApi: IAjaxAPI, options: AjaxOptions) {
         this.url = options.url;
         this.method = options.method;
         if (options.filters) {
@@ -48,7 +45,7 @@ export default class Ajax {
         this.config = options.config;
     }
     public clone(): Ajax {
-        return new Ajax({
+        return new Ajax(this.ajaxApi, {
             url: this.url,
             method: this.method,
             filters: {
@@ -77,7 +74,7 @@ export default class Ajax {
             chain: FilterChain
         ) => {
             const resolvedOptions = this.resolveRequestOptions(requestOptions);
-            return api
+            return this.ajaxApi
                 .request({
                     ...resolvedOptions,
                 })
