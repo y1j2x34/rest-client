@@ -1,6 +1,7 @@
 import { IFiltersConfig, HttpMethod, IAPIConfig, IAjaxRequestOptions, AjaxRequest } from './types';
 import Endpoint from './Endpoint';
 import { Filter } from './FilterChain';
+import IAjaxAPI from './AjaxAPI';
 export declare type FiltersType = undefined | Filter | Filter[];
 export interface AjaxOptions {
     url: string;
@@ -10,6 +11,7 @@ export interface AjaxOptions {
     config: IAPIConfig;
 }
 export default class Ajax {
+    private ajaxApi;
     private url;
     private requestFilters;
     private responseSuccessFilters;
@@ -17,7 +19,7 @@ export default class Ajax {
     private endpoint;
     private method;
     private config;
-    constructor(options: AjaxOptions);
+    constructor(ajaxApi: IAjaxAPI, options: AjaxOptions);
     clone(): Ajax;
     request(options?: IAjaxRequestOptions): AjaxRequest;
     private resolveRequestOptions(options);
