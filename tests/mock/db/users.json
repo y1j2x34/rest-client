@@ -3,18 +3,21 @@
     "id": 0,
     "username": "anonymous",
     "age": null,
-    "role": "master"
+    "role": "master",
+    "avator": "default"
   },
   "1": {
     "id": 1,
     "username": "Tom",
     "age": 2,
-    "role": "hunter"
+    "role": "hunter",
+    "avator": "default"
   },
   "2": {
     "id": 2,
     "username": "Jerry",
     "age": 1,
-    "role": "mouse"
+    "role": "mouse",
+    "avator": "default"
   }
 }
