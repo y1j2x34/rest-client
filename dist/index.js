@@ -1,8 +1,8 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('superagent'), require('file-type')) :
-    typeof define === 'function' && define.amd ? define(['exports', 'superagent', 'file-type'], factory) :
-    (factory((global.Rest = {}),global.request,global.filetype));
-}(this, (function (exports,request,filetype) { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('file-type'), require('superagent')) :
+    typeof define === 'function' && define.amd ? define(['exports', 'file-type', 'superagent'], factory) :
+    (factory((global.Rest = {}),global.filetype,global.request));
+}(this, (function (exports,filetype,request) { 'use strict';
 
     /*! *****************************************************************************
     Copyright (c) Microsoft Corporation. All rights reserved.
@@ -122,264 +122,6 @@
         return FilterChain;
     }());
 
-    var AjaxResponseImpl = /** @class */ (function () {
-        function AjaxResponseImpl(resp) {
-            this.resp = resp;
-        }
-        Object.defineProperty(AjaxResponseImpl.prototype, "accepted", {
-            get: function () {
-                return this.resp.accepted;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "badRequest", {
-            get: function () {
-                return this.resp.badRequest;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "body", {
-            get: function () {
-                return this.resp.body;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "charset", {
-            get: function () {
-                return this.resp.charset;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "clientError", {
-            get: function () {
-                return this.resp.clientError;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "error", {
-            get: function () {
-                return this.resp.error;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "files", {
-            get: function () {
-                return this.resp.files;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "forbidden", {
-            get: function () {
-                return this.resp.forbidden;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "headers", {
-            get: function () {
-                return this.resp.header;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "info", {
-            get: function () {
-                return this.resp.info;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "noContent", {
-            get: function () {
-                return this.resp.noContent;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "notAcceptable", {
-            get: function () {
-                return this.resp.notAcceptable;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "notFound", {
-            get: function () {
-                return this.resp.notFound;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "ok", {
-            get: function () {
-                return this.resp.ok;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "unauthorized", {
-            get: function () {
-                return this.resp.unauthorized;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "redirect", {
-            get: function () {
-                return this.resp.redirect;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "serverError", {
-            get: function () {
-                return this.resp.serverError;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "status", {
-            get: function () {
-                return this.resp.status;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "statusType", {
-            get: function () {
-                return this.resp.statusType;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "text", {
-            get: function () {
-                return this.resp.text;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(AjaxResponseImpl.prototype, "type", {
-            get: function () {
-                return this.resp.type;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        AjaxResponseImpl.prototype.getHeader = function (name) {
-            return this.resp.get(name);
-        };
-        return AjaxResponseImpl;
-    }());
-
-    // tslint:disable max-classes-per-file
-    function extendPromise(promise, methods) {
-        var promiseThen = promise.then;
-        var promiseCatch = promise.catch;
-        return Object.assign(promise, methods, {
-            then: function (fullfilled, onrejected) {
-                var newPromise = promiseThen.call(promise, fullfilled, onrejected);
-                return extendPromise(newPromise, methods);
-            },
-            catch: function (onrejected) {
-                var newPromise = promiseCatch.call(promise, onrejected);
-                return extendPromise(newPromise, methods);
-            },
-        });
-    }
-    function newAjaxRequest(req) {
-        var promise = new Promise(function (resolve, reject) {
-            req.then(function (resp) { return resolve(new AjaxResponseImpl(resp)); }, reject);
-        });
-        var methods = {
-            abort: function () {
-                req.abort();
-            },
-            progress: function (handler) {
-                req.on('progress', handler);
-            },
-            on: function (name, handler) {
-                req.on(name, handler);
-            },
-            retry: function (count, callback) {
-                req.retry(count, function (err, res) {
-                    callback(err, new AjaxResponseImpl(res));
-                });
-            },
-        };
-        return extendPromise(promise, methods);
-    }
-
-    var SuperAgentAjaxAPI = /** @class */ (function () {
-        function SuperAgentAjaxAPI() {
-        }
-        SuperAgentAjaxAPI.prototype.request = function (options) {
-            var req = this.createRequest(options);
-            req
-                .on('progress', function (e) {
-                if (options.onprogress) {
-                    options.onprogress(__assign({}, e));
-                }
-            })
-                .on('abort', function (e) {
-                if (options.onabort) {
-                    options.onabort();
-                }
-            })
-                .send(options.payload);
-            return newAjaxRequest(req);
-        };
-        SuperAgentAjaxAPI.prototype.createRequest = function (options) {
-            var req;
-            switch (options.method) {
-                case HttpMethod.GET:
-                    req = request.get(options.url);
-                    break;
-                case HttpMethod.DELETE:
-                    req = request.del(options.url);
-                    break;
-                case HttpMethod.PATCH:
-                    req = request.patch(options.url);
-                    break;
-                case HttpMethod.HEAD:
-                    req = request.head(options.url);
-                    break;
-                case HttpMethod.POST:
-                    req = request.post(options.url);
-                    break;
-                case HttpMethod.PUT:
-                    req = request.put(options.url);
-                    break;
-                default:
-                    throw new Error("Unexpected request method: " + options.method);
-            }
-            if (options.credential) {
-                req.auth(options.credential.username, options.credential.password);
-            }
-            if (options.queries) {
-                req.query(options.queries);
-            }
-            if (options.headers) {
-                req.set(options.headers);
-            }
-            if (options.contentType) {
-                req.set('Content-Type', options.contentType);
-            }
-            if (options.responseType) {
-                req.responseType(options.responseType);
-            }
-            return req;
-        };
-        return SuperAgentAjaxAPI;
-    }());
-
     /*!
      * mime-db
      * Copyright(c) 2014 Jonathan Ong
@@ -488,9 +230,9 @@
         return chain.next(options);
     }
 
-    var api = new SuperAgentAjaxAPI();
     var Ajax = /** @class */ (function () {
-        function Ajax(options) {
+        function Ajax(ajaxApi, options) {
+            this.ajaxApi = ajaxApi;
             this.url = options.url;
             this.method = options.method;
             if (options.filters) {
@@ -502,7 +244,7 @@
             this.config = options.config;
         }
         Ajax.prototype.clone = function () {
-            return new Ajax({
+            return new Ajax(this.ajaxApi, {
                 url: this.url,
                 method: this.method,
                 filters: {
@@ -523,7 +265,7 @@
             var responseErrorFilters = this.resolveResponseErrorFilters(options.filters ? options.filters.failure : undefined);
             var doRequestFilter = function (requestOptions, chain) {
                 var resolvedOptions = _this.resolveRequestOptions(requestOptions);
-                return api
+                return _this.ajaxApi
                     .request(__assign({}, resolvedOptions))
                     .then(function (response) {
                     var result = new FilterChain(responseSuccessFilters, 0).start(response);
@@ -846,14 +588,275 @@
         return chain.next(options);
     }
 
+    var AjaxResponseImpl = /** @class */ (function () {
+        function AjaxResponseImpl(resp) {
+            this.resp = resp;
+        }
+        Object.defineProperty(AjaxResponseImpl.prototype, "accepted", {
+            get: function () {
+                return this.resp.accepted;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "badRequest", {
+            get: function () {
+                return this.resp.badRequest;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "body", {
+            get: function () {
+                return this.resp.body;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "charset", {
+            get: function () {
+                return this.resp.charset;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "clientError", {
+            get: function () {
+                return this.resp.clientError;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "error", {
+            get: function () {
+                return this.resp.error;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "files", {
+            get: function () {
+                return this.resp.files;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "forbidden", {
+            get: function () {
+                return this.resp.forbidden;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "headers", {
+            get: function () {
+                return this.resp.header;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "info", {
+            get: function () {
+                return this.resp.info;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "noContent", {
+            get: function () {
+                return this.resp.noContent;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "notAcceptable", {
+            get: function () {
+                return this.resp.notAcceptable;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "notFound", {
+            get: function () {
+                return this.resp.notFound;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "ok", {
+            get: function () {
+                return this.resp.ok;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "unauthorized", {
+            get: function () {
+                return this.resp.unauthorized;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "redirect", {
+            get: function () {
+                return this.resp.redirect;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "serverError", {
+            get: function () {
+                return this.resp.serverError;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "status", {
+            get: function () {
+                return this.resp.status;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "statusType", {
+            get: function () {
+                return this.resp.statusType;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "text", {
+            get: function () {
+                return this.resp.text;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AjaxResponseImpl.prototype, "type", {
+            get: function () {
+                return this.resp.type;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        AjaxResponseImpl.prototype.getHeader = function (name) {
+            return this.resp.get(name);
+        };
+        return AjaxResponseImpl;
+    }());
+
+    // tslint:disable max-classes-per-file
+    function extendPromise(promise, methods) {
+        var promiseThen = promise.then;
+        var promiseCatch = promise.catch;
+        return Object.assign(promise, methods, {
+            then: function (fullfilled, onrejected) {
+                var newPromise = promiseThen.call(promise, fullfilled, onrejected);
+                return extendPromise(newPromise, methods);
+            },
+            catch: function (onrejected) {
+                var newPromise = promiseCatch.call(promise, onrejected);
+                return extendPromise(newPromise, methods);
+            },
+        });
+    }
+    function newAjaxRequest(req) {
+        var promise = new Promise(function (resolve, reject) {
+            req.then(function (resp) { return resolve(new AjaxResponseImpl(resp)); }, reject);
+        });
+        var methods = {
+            abort: function () {
+                req.abort();
+            },
+            progress: function (handler) {
+                req.on('progress', handler);
+            },
+            on: function (name, handler) {
+                req.on(name, handler);
+            },
+            retry: function (count, callback) {
+                req.retry(count, function (err, res) {
+                    callback(err, new AjaxResponseImpl(res));
+                });
+            },
+        };
+        return extendPromise(promise, methods);
+    }
+
+    var SuperAgentAjaxAPI = /** @class */ (function () {
+        function SuperAgentAjaxAPI() {
+        }
+        SuperAgentAjaxAPI.prototype.request = function (options) {
+            var req = this.createRequest(options);
+            req
+                .on('progress', function (e) {
+                if (options.onprogress) {
+                    options.onprogress(__assign({}, e));
+                }
+            })
+                .on('abort', function (e) {
+                if (options.onabort) {
+                    options.onabort();
+                }
+            })
+                .send(options.payload);
+            return newAjaxRequest(req);
+        };
+        SuperAgentAjaxAPI.prototype.createRequest = function (options) {
+            var req;
+            switch (options.method) {
+                case HttpMethod.GET:
+                    req = request.get(options.url);
+                    break;
+                case HttpMethod.DELETE:
+                    req = request.del(options.url);
+                    break;
+                case HttpMethod.PATCH:
+                    req = request.patch(options.url);
+                    break;
+                case HttpMethod.HEAD:
+                    req = request.head(options.url);
+                    break;
+                case HttpMethod.POST:
+                    req = request.post(options.url);
+                    break;
+                case HttpMethod.PUT:
+                    req = request.put(options.url);
+                    break;
+                default:
+                    throw new Error("Unexpected request method: " + options.method);
+            }
+            if (options.credential) {
+                req.auth(options.credential.username, options.credential.password);
+            }
+            if (options.queries) {
+                req.query(options.queries);
+            }
+            if (options.headers) {
+                req.set(options.headers);
+            }
+            if (options.contentType) {
+                req.set('Content-Type', options.contentType);
+            }
+            if (options.responseType) {
+                req.responseType(options.responseType);
+            }
+            return req;
+        };
+        return SuperAgentAjaxAPI;
+    }());
+
     var OPPORTUNITY_RESPONSE_ERROR = 'response-error';
     var OPPORTUNITY_REQUEST = 'request';
     var OPPORTUNITY_RESPONSE_SUCCESS = 'response-success';
+    var superAgentAjaxAPI = new SuperAgentAjaxAPI();
     var Endpoint = /** @class */ (function () {
-        function Endpoint(server, basePath) {
+        function Endpoint(server, basePath, ajaxAPI) {
             if (basePath === void 0) { basePath = ''; }
+            if (ajaxAPI === void 0) { ajaxAPI = superAgentAjaxAPI; }
             this.server = server;
             this.basePath = basePath;
+            this.ajaxAPI = ajaxAPI;
             this.requestFilters = [pathVariableFilter, queriesFilter];
             this.responseSuccessFilters = [];
             this.responseErrorFilters = [];
@@ -939,7 +942,7 @@
             if (!config) {
                 return;
             }
-            return new Ajax({
+            return new Ajax(this.ajaxAPI, {
                 url: config.url || '',
                 endpoint: this,
                 method: config.method || HttpMethod.GET,
