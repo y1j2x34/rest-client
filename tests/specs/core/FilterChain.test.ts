@@ -1,6 +1,6 @@
 import * as chai from 'chai';
 import * as spies from 'chai-spies';
-import FilterChain from '../../src/core/FilterChain';
+import FilterChain from '../../../src/core/FilterChain';
 
 chai.use(spies);
 
