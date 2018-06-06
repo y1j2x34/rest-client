@@ -6,6 +6,7 @@ export default class FilterChain {
     public static isTerminal(value: any) {
         return TERMINAL_RESULT === value;
     }
+    private startValue?:any;
     /**
      * @constructs FilterChain
      * @hideconstructor
@@ -23,12 +24,18 @@ export default class FilterChain {
 
         const filter = this.filters[this.index];
         const nextchain = this.nextchain();
+        nextchain.startValue = this.startValue;
         return filter(value, nextchain);
     }
-    public retry(value: any) {
-        return this.chainAt(0).start(value);
+    public retry(value?: any) {
+        let retryValue = value;
+        if(value === undefined) {
+            retryValue = this.startValue;
+        }
+        return this.chainAt(0).start(retryValue);
     }
     public start(value: any) {
+        this.startValue = value;
         return this.next(value);
     }
     public error(reason: Error) {
