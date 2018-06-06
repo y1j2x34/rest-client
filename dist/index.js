@@ -96,12 +96,18 @@
             }
             var filter = this.filters[this.index];
             var nextchain = this.nextchain();
+            nextchain.startValue = this.startValue;
             return filter(value, nextchain);
         };
         FilterChain.prototype.retry = function (value) {
-            return this.chainAt(0).start(value);
+            var retryValue = value;
+            if (value === undefined) {
+                retryValue = this.startValue;
+            }
+            return this.chainAt(0).start(retryValue);
         };
         FilterChain.prototype.start = function (value) {
+            this.startValue = value;
             return this.next(value);
         };
         FilterChain.prototype.error = function (reason) {

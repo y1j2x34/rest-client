@@ -3,6 +3,7 @@ export default class FilterChain {
     private filters;
     private index;
     static isTerminal(value: any): boolean;
+    private startValue?;
     /**
      * @constructs FilterChain
      * @hideconstructor
@@ -11,7 +12,7 @@ export default class FilterChain {
      */
     constructor(filters: Filter[], index: number);
     next(value: any): any;
-    retry(value: any): any;
+    retry(value?: any): any;
     start(value: any): any;
     error(reason: Error): Promise<never>;
     finish(result: any): any;
