@@ -49,7 +49,7 @@ describe('test filter chain', () => {
         expect(incrementFilterSpy).to.have.been.called.twice;
         expect(retryFilterSpy).to.have.been.called.twice;
     })
-    it('filters should be stoped on chain.finish called', () => {
+    it('filters should be stoped after chain.finish called', () => {
         const finishFilter = (value, chain: FilterChain) => {
             return chain.finish(value);
         }
@@ -62,7 +62,7 @@ describe('test filter chain', () => {
         expect(finishFilterSpy).to.have.been.called.once;
         expect(incrementFilterSpy).to.have.not.been.called;
     });
-    it('filters should be stoped on chain.error called', () => {
+    it('filters should be stoped after chain.error called', () => {
         const expectedError = new Error('Unknown error occurred');
         const errorFilter = (value, chain: FilterChain) => {
             return chain.error(expectedError);
