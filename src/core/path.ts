@@ -9,7 +9,6 @@ const replaceSepsRegExp = /[/\\]+/g;
  * @returns {string}
  */
 export function join(...paths: string[]): string {
-    console.info(paths);
     return paths
         .filter(path => !!path)
         .map(path => {
