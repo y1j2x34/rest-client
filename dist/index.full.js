@@ -42,7 +42,6 @@
         for (var _i = 0; _i < arguments.length; _i++) {
             paths[_i] = arguments[_i];
         }
-        console.info(paths);
         return paths
             .filter(function (path) { return !!path; })
             .map(function (path) {
