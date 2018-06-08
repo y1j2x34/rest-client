@@ -9,7 +9,7 @@ import {
 import Endpoint from './Endpoint';
 import FilterChain, { Filter } from './FilterChain';
 import IAjaxAPI, { IRequestOptions } from './AjaxAPI';
-import transformFilesParameterFilter from './internal/transformFilesParameterFilter';
+import { filters } from './internal/filters';
 
 export type FiltersType = undefined | Filter | Filter[];
 
@@ -114,7 +114,7 @@ export default class Ajax {
         const method = options.method || this.method;
         const queries = options.queries;
         let credential;
-        if(this.config.credential || options.credential) {
+        if (this.config.credential || options.credential) {
             credential = Object.assign(
                 {},
                 this.config.credential,
@@ -141,7 +141,7 @@ export default class Ajax {
             optionFilters,
             this.requestFilters,
             this.endpoint.requestFilters,
-            transformFilesParameterFilter,
+            filters.files(),
             doRequestFilter
         );
     }
@@ -161,18 +161,18 @@ export default class Ajax {
             this.endpoint.responseSuccessFilters
         );
     }
-    private concatFilters(...filters: FiltersType[]): Filter[] {
-        return filters
+    private concatFilters(...filtersArray: FiltersType[]): Filter[] {
+        return filtersArray
             .filter(filter => !!filter)
             .reduce((all: FiltersType, item: FiltersType) => {
                 return (all as Filter[]).concat(item as Filter | Filter[]);
             }, []) as Filter[];
     }
-    private cloneFilters(filters?: Filter | Filter[]): Filter[] {
-        return Array.isArray(filters)
-            ? filters.slice(0)
-            : filters
-                ? [filters]
+    private cloneFilters(filtersArray?: Filter | Filter[]): Filter[] {
+        return Array.isArray(filtersArray)
+            ? filtersArray.slice(0)
+            : filtersArray
+                ? [filtersArray]
                 : [];
     }
 }

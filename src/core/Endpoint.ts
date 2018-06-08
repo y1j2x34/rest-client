@@ -5,16 +5,16 @@ import {
     FilterOpportunity,
     IEndpointConfigure,
     HttpMethod,
+    ajaxAPIParameterFields,
+    IParamConfig,
 } from './types';
 import Ajax from './Ajax';
-import validateRequiredParameterFilters from './internal/validateRequiredParameterFilters';
-import defaultValueFilter from './internal/defaultValueFilter';
-import optionsValidatorFilters from './internal/optionsValidatorFilters';
 import pathVariableFilter from './internal/pathVariableFilter';
-import queriesFilter from './internal/queriesFilter';
 import jsonParameterFilter from './internal/jsonParameterFilter';
 import IAjaxAPI from './AjaxAPI';
 import SuperAgentAjaxAPI from '../ajax/SuperAgentAjaxAPI';
+import queriesFilter from './internal/queriesFilter';
+import { filters as filtersCreator } from './internal/filters';
 
 type ComplexFiltersType = Filter | Filter[] | undefined;
 
@@ -38,7 +38,11 @@ export default class Endpoint {
     public responseErrorFilters: Filter[] = [];
     private apis: Map<string, ICachedAPIConfig> = new Map();
 
-    constructor(private server: string, private basePath: string = '', private ajaxAPI: IAjaxAPI = superAgentAjaxAPI) {}
+    constructor(
+        private server: string,
+        private basePath: string = '',
+        private ajaxAPI: IAjaxAPI = superAgentAjaxAPI
+    ) {}
 
     public addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint {
         switch (opportunity) {
@@ -85,10 +89,35 @@ export default class Endpoint {
             failure: [],
         };
 
-        filters.request = filters.request
-            .concat(validateRequiredParameterFilters(config))
-            .concat(defaultValueFilter(config))
-            .concat(optionsValidatorFilters(config));
+        ajaxAPIParameterFields
+            .filter(field => !!config[field])
+            .map(field => {
+                filters.request.push(
+                    filtersCreator.validateRequired(
+                        config[field] as IParamConfig[],
+                        field
+                    )
+                );
+                return field;
+            })
+            .map(field => {
+                filters.request.push(
+                    filtersCreator.defaultValue(
+                        config[field] as IParamConfig[],
+                        field
+                    )
+                );
+                return field;
+            })
+            .map(field => {
+                filters.request.push(
+                    filtersCreator.validatetor(
+                        config[field] as IParamConfig[],
+                        field
+                    )
+                );
+                return field;
+            });
 
         if (config.formdata) {
             filters.request.unshift(jsonParameterFilter);

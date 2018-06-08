@@ -41,9 +41,11 @@ export default function pathVariableFilter(
 
     let template = templateCache[options.url];
     if (!template) {
-        template = templateCache[options.url] = pathTemplateParser.parse( options.url );
+        template = templateCache[options.url] = pathTemplateParser.parse(
+            options.url
+        );
     }
-    options.url = template.execute(encodedVariables, (key) => `:${key}`);
+    options.url = template.execute(encodedVariables, key => `:${key}`);
 
     return chain.next(options);
 }

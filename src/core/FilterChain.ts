@@ -6,7 +6,7 @@ export default class FilterChain {
     public static isTerminal(value: any) {
         return TERMINAL_RESULT === value;
     }
-    private startValue?:any;
+    private startValue?: any;
     /**
      * @constructs FilterChain
      * @hideconstructor
@@ -29,7 +29,7 @@ export default class FilterChain {
     }
     public retry(value?: any) {
         let retryValue = value;
-        if(value === undefined) {
+        if (value === undefined) {
             retryValue = this.startValue;
         }
         return this.chainAt(0).start(retryValue);

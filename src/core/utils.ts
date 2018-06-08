@@ -26,14 +26,14 @@ function argumentsToString() {
 }
 const ARGUMENT_TO_STRING = argumentsToString();
 
-export const isArgument = (arg: any):boolean =>
+export const isArgument = (arg: any): boolean =>
     !!arg && arg.toString() === ARGUMENT_TO_STRING;
 
 export function toArray<T>(...args: any[]): T[] {
-    if(args.length === 1) {
-        if(args[0] === undefined || args[0] === null) {
+    if (args.length === 1) {
+        if (args[0] === undefined || args[0] === null) {
             return [];
-        } else if(Array.isArray(args[0])) {
+        } else if (Array.isArray(args[0])) {
             return args[0];
         }
     }
@@ -43,7 +43,7 @@ export function toArray<T>(...args: any[]): T[] {
     return args;
 }
 export function isTypedArray(value: any): boolean {
-    if(value === undefined || value === null) {
+    if (value === undefined || value === null) {
         return false;
     }
     return (

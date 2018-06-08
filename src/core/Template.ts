@@ -7,8 +7,11 @@ export type TemplateVariales =
           [key: string]: Primitive;
       };
 
-export type notFoundCallback = (key:string) => string;
-type Parser = (variables: TemplateVariales, notFound?:notFoundCallback) => string;
+export type notFoundCallback = (key: string) => string;
+type Parser = (
+    variables: TemplateVariales,
+    notFound?: notFoundCallback
+) => string;
 
 function escapeRegex(str: string): string {
     return str.replace(/([\$\[\]\(\)\{\}\^\+\.\*\?\\\-])/g, '\\$1');
@@ -18,19 +21,27 @@ function textplain(text: string, variables?: TemplateVariales) {
     return text;
 }
 
-function placeholder(key: string, variables: TemplateVariales, notFound?: notFoundCallback) {
+function placeholder(
+    key: string,
+    variables: TemplateVariales,
+    notFound?: notFoundCallback
+) {
     if (!variables) {
         return notFound !== undefined ? notFound(key) : '';
     }
-    if(key in variables) {
+    if (key in variables) {
         return variables[key];
-    } else if(notFound !== undefined) {
+    } else if (notFound !== undefined) {
         return notFound(key);
     }
     return '';
 }
 
-function merge(compiled: Parser[], variables: TemplateVariales, notFound?:notFoundCallback) {
+function merge(
+    compiled: Parser[],
+    variables: TemplateVariales,
+    notFound?: notFoundCallback
+) {
     if (!variables) {
         variables = {};
     }
@@ -38,8 +49,16 @@ function merge(compiled: Parser[], variables: TemplateVariales, notFound?:notFou
 }
 
 export class Template {
-    constructor(private parsed: (variables: TemplateVariales, notFound?: notFoundCallback) => string) {}
-    public execute(variables: TemplateVariales, notFound?:notFoundCallback ): string {
+    constructor(
+        private parsed: (
+            variables: TemplateVariales,
+            notFound?: notFoundCallback
+        ) => string
+    ) {}
+    public execute(
+        variables: TemplateVariales,
+        notFound?: notFoundCallback
+    ): string {
         return this.parsed(variables, notFound);
     }
 }
@@ -51,12 +70,16 @@ export default class TemplateParser {
      * @param {string} [suffix='}'] - 占位符后缀
      * @param {boolean} [escape=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
      */
-    constructor(prefix: string = '${', suffix: string = '}', escape: boolean = false) {
+    constructor(
+        prefix: string = '${',
+        suffix: string = '}',
+        escape: boolean = false
+    ) {
         const prefReg = !escape ? escapeRegex(prefix) : prefix;
         const sufReg = !escape ? escapeRegex(suffix) : suffix;
         this.regex = new RegExp(`${prefReg}(.*?)${sufReg}`, 'g');
     }
-    public parse( text: string ): Template {
+    public parse(text: string): Template {
         if (typeof text !== 'string') {
             return merge.bind(null, []);
         }

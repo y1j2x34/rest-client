@@ -93,6 +93,13 @@ export interface IFormdataConfig extends IParamConfig {
     defaultValue?: Primitive;
 }
 
+export const ajaxAPIParameterFields: RequestParamField[] = [
+    'queries',
+    'headers',
+    'pathVariables',
+    'formdata',
+];
+
 export interface IAPIConfig {
     [key: string]: any;
     url?: string;
