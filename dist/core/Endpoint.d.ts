@@ -1,5 +1,6 @@
 import { Filter } from './FilterChain';
 import { IAPIConfig, FilterOpportunity, IEndpointConfigure } from './types';
+import Ajax from './Ajax';
 import IAjaxAPI from './AjaxAPI';
 export default class Endpoint {
     private server;
@@ -16,6 +17,6 @@ export default class Endpoint {
     addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint;
     registerAPI(name: string, config: IAPIConfig): Endpoint;
     configure({basePath, filters, apis}: IEndpointConfigure): Endpoint;
-    api(name: string): any;
+    api(name: string): Ajax;
     private addFilters(filters, opt);
 }

@@ -1,3 +1,3 @@
 import { InternalAjaxRequestOptions } from '../types';
 import FilterChain from '../FilterChain';
-export default function (options: InternalAjaxRequestOptions, chain: FilterChain): any;
+export default function queriesFilter(options: InternalAjaxRequestOptions, chain: FilterChain): any;

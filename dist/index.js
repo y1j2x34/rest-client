@@ -71,6 +71,12 @@
         FilterOpportunity[FilterOpportunity["RESPONSE_SUCCESS"] = 1] = "RESPONSE_SUCCESS";
         FilterOpportunity[FilterOpportunity["RESPONSE_ERROR"] = 2] = "RESPONSE_ERROR";
     })(FilterOpportunity || (FilterOpportunity = {}));
+    var ajaxAPIParameterFields = [
+        'queries',
+        'headers',
+        'pathVariables',
+        'formdata',
+    ];
 
     var TERMINAL_RESULT = new Promise(function () { return undefined; });
     var FilterChain = /** @class */ (function () {
@@ -126,6 +132,181 @@
         };
         return FilterChain;
     }());
+
+    function createRequireParameterFilter(paramConfigs, field) {
+        return function (options, chain) {
+            var pairs = options[field];
+            if (pairs === undefined) {
+                pairs = options[field] = {};
+            }
+            for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                var paramConfig = paramConfigs_1[_i];
+                var paramName = paramConfig.name;
+                var value = void 0;
+                if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+                    value = pairs.get(paramName);
+                }
+                else {
+                    value = pairs[paramName];
+                }
+                if (paramConfig.required !== false &&
+                    value === undefined &&
+                    paramConfig.defaultValue === undefined) {
+                    return chain.error(new Error("Required parameter '" + paramName + "' of " + field + " is missing and 'defaultValue' of api config is not defined."));
+                }
+            }
+            return chain.next(options);
+        };
+    }
+
+    function createValidatorFilter(paramConfigs, field) {
+        return function (options, chain) {
+            for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                var paramConfig = paramConfigs_1[_i];
+                var validator = paramConfig.validator;
+                options = JSON.parse(JSON.stringify(options));
+                var pairs = options[field];
+                if (!pairs) {
+                    pairs = options[field] = {};
+                }
+                var paramName = paramConfig.name;
+                var value = void 0;
+                if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+                    value = pairs.get(paramName);
+                }
+                else {
+                    value = pairs[paramName];
+                }
+                if (validator !== undefined &&
+                    validator.call(paramConfig, value, options)) {
+                    throw new Error("Invalid parameter: '" + paramName + "' = " + value);
+                }
+            }
+            return chain.next(options);
+        };
+    }
+
+    function queriesFilter(options, chain) {
+        var queries = options.queries || {};
+        var queriesConfig = options.apiConfig.queries;
+        if (queriesConfig) {
+            queriesConfig.forEach(function (query) {
+                var name = query.name;
+                if (query.defaultValue !== undefined &&
+                    queries[name] === undefined) {
+                    queries[name] = query.defaultValue;
+                }
+            });
+        }
+        options.queries = queries;
+        return chain.next(options);
+    }
+
+    function escapeRegex(str) {
+        return str.replace(/([\$\[\]\(\)\{\}\^\+\.\*\?\\\-])/g, '\\$1');
+    }
+    function textplain(text, variables) {
+        return text;
+    }
+    function placeholder(key, variables, notFound) {
+        if (!variables) {
+            return notFound !== undefined ? notFound(key) : '';
+        }
+        if (key in variables) {
+            return variables[key];
+        }
+        else if (notFound !== undefined) {
+            return notFound(key);
+        }
+        return '';
+    }
+    function merge(compiled, variables, notFound) {
+        if (!variables) {
+            variables = {};
+        }
+        return compiled.map(function (parser) { return parser(variables, notFound); }).join('');
+    }
+    var Template = /** @class */ (function () {
+        function Template(parsed) {
+            this.parsed = parsed;
+        }
+        Template.prototype.execute = function (variables, notFound) {
+            return this.parsed(variables, notFound);
+        };
+        return Template;
+    }());
+    var TemplateParser = /** @class */ (function () {
+        /**
+         * @param {string} [prefix='${'] - 占位符 前缀
+         * @param {string} [suffix='}'] - 占位符后缀
+         * @param {boolean} [escape=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
+         */
+        function TemplateParser(prefix, suffix, escape) {
+            if (prefix === void 0) { prefix = '${'; }
+            if (suffix === void 0) { suffix = '}'; }
+            if (escape === void 0) { escape = false; }
+            var prefReg = !escape ? escapeRegex(prefix) : prefix;
+            var sufReg = !escape ? escapeRegex(suffix) : suffix;
+            this.regex = new RegExp(prefReg + "(.*?)" + sufReg, 'g');
+        }
+        TemplateParser.prototype.parse = function (text) {
+            if (typeof text !== 'string') {
+                return merge.bind(null, []);
+            }
+            var compiled = [];
+            var lastIndex = 0;
+            while (true) {
+                var result = this.regex.exec(text);
+                if (result === null) {
+                    break;
+                }
+                var match = result[0];
+                var key = result[1];
+                var index = result.index;
+                compiled.push(textplain.bind(null, text.slice(lastIndex, index)));
+                compiled.push(placeholder.bind(null, key));
+                lastIndex = index + match.length;
+            }
+            compiled.push(textplain.bind(null, text.slice(lastIndex)));
+            return new Template(merge.bind(null, compiled));
+        };
+        return TemplateParser;
+    }());
+
+    var templateCache = {};
+    var pathTemplateParser = new TemplateParser(':', '(?=(/|\\\\|\\.))', true);
+    function pathVariableFilter(options, chain) {
+        var variables = options.apiConfig.pathVariables;
+        var vars = options.pathVariables || {};
+        if (variables) {
+            variables.forEach(function (variable) {
+                var name = variable.name;
+                var defaultValue = variable.defaultValue;
+                if (vars[name] === undefined && defaultValue !== undefined) {
+                    vars[name] = defaultValue;
+                }
+            });
+        }
+        var encodedVariables = {};
+        for (var _i = 0, _a = Object.entries(vars); _i < _a.length; _i++) {
+            var _b = _a[_i], key = _b[0], value = _b[1];
+            var decoded = '' + value;
+            try {
+                decoded = decodeURI(decoded);
+            }
+            catch (error) {
+                // ignored
+            }
+            encodedVariables[key] = encodeURI(decoded);
+        }
+        options.pathVariables = encodedVariables;
+        var template = templateCache[options.url];
+        if (!template) {
+            template = templateCache[options.url] = pathTemplateParser.parse(options.url);
+        }
+        options.url = template.execute(encodedVariables, function (key) { return ":" + key; });
+        return chain.next(options);
+    }
 
     /*!
      * mime-db
@@ -235,6 +416,48 @@
         return chain.next(options);
     }
 
+    function createDefaultValueFilter(paramConfigs, field) {
+        return function (options, chain) {
+            var pairs = options[field];
+            if (!pairs) {
+                pairs = options[field] = {};
+            }
+            for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
+                var paramConfig = paramConfigs_1[_i];
+                var paramName = paramConfig.name;
+                var value = void 0;
+                if (paramConfig.defaultValue === undefined) {
+                    return chain.next(options);
+                }
+                if (pairs instanceof FormData) {
+                    value = pairs.get(paramName);
+                }
+                else {
+                    value = pairs[paramName];
+                }
+                if (value === undefined) {
+                    value = paramConfig.defaultValue;
+                }
+                if (pairs instanceof FormData) {
+                    pairs.set(name, value);
+                }
+                else {
+                    pairs[name] = value;
+                }
+            }
+            return chain.next(options);
+        };
+    }
+
+    var filters = {
+        validateRequired: createRequireParameterFilter,
+        validatetor: createValidatorFilter,
+        defaultValue: createDefaultValueFilter,
+        queries: function () { return queriesFilter; },
+        pathVariable: function () { return pathVariableFilter; },
+        files: function () { return transformFilesParameterFilter; },
+    };
+
     var Ajax = /** @class */ (function () {
         function Ajax(ajaxApi, options) {
             this.ajaxApi = ajaxApi;
@@ -310,7 +533,7 @@
             };
         };
         Ajax.prototype.resolveRequestFilters = function (optionFilters, doRequestFilter) {
-            return this.concatFilters(optionFilters, this.requestFilters, this.endpoint.requestFilters, transformFilesParameterFilter, doRequestFilter);
+            return this.concatFilters(optionFilters, this.requestFilters, this.endpoint.requestFilters, filters.files(), doRequestFilter);
         };
         Ajax.prototype.resolveResponseErrorFilters = function (optionFilters) {
             return this.concatFilters(optionFilters, this.responseErrorFilters, this.endpoint.responseErrorFilters);
@@ -319,266 +542,25 @@
             return this.concatFilters(optionFilters, this.responseSuccessFilters, this.endpoint.responseSuccessFilters);
         };
         Ajax.prototype.concatFilters = function () {
-            var filters = [];
+            var filtersArray = [];
             for (var _i = 0; _i < arguments.length; _i++) {
-                filters[_i] = arguments[_i];
+                filtersArray[_i] = arguments[_i];
             }
-            return filters
+            return filtersArray
                 .filter(function (filter) { return !!filter; })
                 .reduce(function (all, item) {
                 return all.concat(item);
             }, []);
         };
-        Ajax.prototype.cloneFilters = function (filters) {
-            return Array.isArray(filters)
-                ? filters.slice(0)
-                : filters
-                    ? [filters]
+        Ajax.prototype.cloneFilters = function (filtersArray) {
+            return Array.isArray(filtersArray)
+                ? filtersArray.slice(0)
+                : filtersArray
+                    ? [filtersArray]
                     : [];
         };
         return Ajax;
     }());
-
-    var requestOptionFields = [
-        'pathVariables',
-        'queries',
-        'headers',
-        'formdata',
-    ];
-    function validateRequiredParameterFilters (ajaxConfig) {
-        return requestOptionFields
-            .filter(function (name) { return !!ajaxConfig[name]; })
-            .map(function (field) { return createFilter(ajaxConfig[field], field); });
-        function createFilter(paramConfigs, field) {
-            return function (options, chain) {
-                var pairs = options[field];
-                if (pairs === undefined) {
-                    pairs = options[field] = {};
-                }
-                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
-                    var paramConfig = paramConfigs_1[_i];
-                    var paramName = paramConfig.name;
-                    var value = void 0;
-                    if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
-                        value = pairs.get(paramName);
-                    }
-                    else {
-                        value = pairs[paramName];
-                    }
-                    if (paramConfig.required !== false &&
-                        value === undefined &&
-                        paramConfig.defaultValue === undefined) {
-                        return chain.error(new Error("Required parameter '" + paramName + "' of " + field + " is missing and 'defaultValue' of api config is not defined."));
-                    }
-                }
-                return chain.next(options);
-            };
-        }
-    }
-
-    var requestOptionFields$1 = [
-        'pathVariables',
-        'queries',
-        'headers',
-        'formdata',
-    ];
-    function defaultValueFilter (ajaxConfig) {
-        return requestOptionFields$1
-            .filter(function (name) { return !!ajaxConfig[name]; })
-            .map(function (field) { return createFilter(ajaxConfig[field], field); });
-        function createFilter(paramConfigs, field) {
-            return function (options, chain) {
-                var pairs = options[field];
-                if (!pairs) {
-                    pairs = options[field] = {};
-                }
-                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
-                    var paramConfig = paramConfigs_1[_i];
-                    var paramName = paramConfig.name;
-                    var value = void 0;
-                    if (paramConfig.defaultValue === undefined) {
-                        return chain.next(options);
-                    }
-                    if (pairs instanceof FormData) {
-                        value = pairs.get(paramName);
-                    }
-                    else {
-                        value = pairs[paramName];
-                    }
-                    if (value === undefined) {
-                        value = paramConfig.defaultValue;
-                    }
-                    if (pairs instanceof FormData) {
-                        pairs.set(name, value);
-                    }
-                    else {
-                        pairs[name] = value;
-                    }
-                }
-                return chain.next(options);
-            };
-        }
-    }
-
-    var requestOptionFields$2 = [
-        'pathVariables',
-        'queries',
-        'headers',
-        'formdata',
-    ];
-    function optionsValidatorFilters (ajaxConfig) {
-        return requestOptionFields$2
-            .filter(function (name) { return !!ajaxConfig[name]; })
-            .map(function (field) { return createFilter(ajaxConfig[field], field); });
-        function createFilter(paramConfigs, field) {
-            return function (options, chain) {
-                for (var _i = 0, paramConfigs_1 = paramConfigs; _i < paramConfigs_1.length; _i++) {
-                    var paramConfig = paramConfigs_1[_i];
-                    var validator = paramConfig.validator;
-                    options = JSON.parse(JSON.stringify(options));
-                    var pairs = options[field];
-                    if (!pairs) {
-                        pairs = options[field] = {};
-                    }
-                    var paramName = paramConfig.name;
-                    var value = void 0;
-                    if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
-                        value = pairs.get(paramName);
-                    }
-                    else {
-                        value = pairs[paramName];
-                    }
-                    if (validator !== undefined &&
-                        validator.call(paramConfig, value, options)) {
-                        throw new Error("Parameter '" + paramName + "' validation failed: " + value + "\r\nurl: " + ajaxConfig.url);
-                    }
-                }
-                return chain.next(options);
-            };
-        }
-    }
-
-    function escapeRegex(str) {
-        return str.replace(/([\$\[\]\(\)\{\}\^\+\.\*\?\\\-])/g, '\\$1');
-    }
-    function textplain(text, variables) {
-        return text;
-    }
-    function placeholder(key, variables, notFound) {
-        if (!variables) {
-            return notFound !== undefined ? notFound(key) : '';
-        }
-        if (key in variables) {
-            return variables[key];
-        }
-        else if (notFound !== undefined) {
-            return notFound(key);
-        }
-        return '';
-    }
-    function merge(compiled, variables, notFound) {
-        if (!variables) {
-            variables = {};
-        }
-        return compiled.map(function (parser) { return parser(variables, notFound); }).join('');
-    }
-    var Template = /** @class */ (function () {
-        function Template(parsed) {
-            this.parsed = parsed;
-        }
-        Template.prototype.execute = function (variables, notFound) {
-            return this.parsed(variables, notFound);
-        };
-        return Template;
-    }());
-    var TemplateParser = /** @class */ (function () {
-        /**
-         * @param {string} [prefix='${'] - 占位符 前缀
-         * @param {string} [suffix='}'] - 占位符后缀
-         * @param {boolean} [escape=false] - 如果为true,则不会替换占位符的正则表达式的特殊符号， 默认为false
-         */
-        function TemplateParser(prefix, suffix, escape) {
-            if (prefix === void 0) { prefix = '${'; }
-            if (suffix === void 0) { suffix = '}'; }
-            if (escape === void 0) { escape = false; }
-            var prefReg = !escape ? escapeRegex(prefix) : prefix;
-            var sufReg = !escape ? escapeRegex(suffix) : suffix;
-            this.regex = new RegExp(prefReg + "(.*?)" + sufReg, 'g');
-        }
-        TemplateParser.prototype.parse = function (text) {
-            if (typeof text !== 'string') {
-                return merge.bind(null, []);
-            }
-            var compiled = [];
-            var lastIndex = 0;
-            while (true) {
-                var result = this.regex.exec(text);
-                if (result === null) {
-                    break;
-                }
-                var match = result[0];
-                var key = result[1];
-                var index = result.index;
-                compiled.push(textplain.bind(null, text.slice(lastIndex, index)));
-                compiled.push(placeholder.bind(null, key));
-                lastIndex = index + match.length;
-            }
-            compiled.push(textplain.bind(null, text.slice(lastIndex)));
-            return new Template(merge.bind(null, compiled));
-        };
-        return TemplateParser;
-    }());
-
-    var templateCache = {};
-    var pathTemplateParser = new TemplateParser(':', '(?=(/|\\\\|\\.))', true);
-    function pathVariableFilter(options, chain) {
-        var variables = options.apiConfig.pathVariables;
-        var vars = options.pathVariables || {};
-        if (variables) {
-            variables.forEach(function (variable) {
-                var name = variable.name;
-                var defaultValue = variable.defaultValue;
-                if (vars[name] === undefined && defaultValue !== undefined) {
-                    vars[name] = defaultValue;
-                }
-            });
-        }
-        var encodedVariables = {};
-        for (var _i = 0, _a = Object.entries(vars); _i < _a.length; _i++) {
-            var _b = _a[_i], key = _b[0], value = _b[1];
-            var decoded = value;
-            try {
-                decoded = decodeURI(decoded);
-            }
-            catch (error) {
-                // ignored
-            }
-            encodedVariables[key] = encodeURI(decoded);
-        }
-        options.pathVariables = encodedVariables;
-        var template = templateCache[options.url];
-        if (!template) {
-            template = templateCache[options.url] = pathTemplateParser.parse(options.url);
-        }
-        options.url = template.execute(encodedVariables, function (key) { return ":" + key; });
-        return chain.next(options);
-    }
-
-    function queriesFilter (options, chain) {
-        var queries = options.queries || {};
-        var queriesConfig = options.apiConfig.queries;
-        if (queriesConfig) {
-            queriesConfig.forEach(function (query) {
-                var name = query.name;
-                if (query.defaultValue !== undefined &&
-                    queries[name] === undefined) {
-                    queries[name] = query.defaultValue;
-                }
-            });
-        }
-        options.queries = queries;
-        return chain.next(options);
-    }
 
     function jsonParameterFilter(options, chain) {
         if (options.json) {
@@ -895,42 +877,52 @@
             else if (!url) {
                 url = join(this.server, this.basePath, path || '');
             }
-            var filters = {
+            var filters$$1 = {
                 request: [],
                 success: [],
                 failure: [],
             };
-            filters.request = filters.request
-                .concat(validateRequiredParameterFilters(config))
-                .concat(defaultValueFilter(config))
-                .concat(optionsValidatorFilters(config));
+            ajaxAPIParameterFields
+                .filter(function (field) { return !!config[field]; })
+                .map(function (field) {
+                filters$$1.request.push(filters.validateRequired(config[field], field));
+                return field;
+            })
+                .map(function (field) {
+                filters$$1.request.push(filters.defaultValue(config[field], field));
+                return field;
+            })
+                .map(function (field) {
+                filters$$1.request.push(filters.validatetor(config[field], field));
+                return field;
+            });
             if (config.formdata) {
-                filters.request.unshift(jsonParameterFilter);
+                filters$$1.request.unshift(jsonParameterFilter);
             }
             var apiFilters = config.filters;
             if (apiFilters && apiFilters.request) {
                 if (typeof apiFilters.request === 'function') {
-                    filters.request.unshift(apiFilters.request);
+                    filters$$1.request.unshift(apiFilters.request);
                 }
                 else if (Array.isArray(apiFilters.request)) {
-                    filters.request = apiFilters.request.concat(filters.request);
+                    filters$$1.request = apiFilters.request.concat(filters$$1.request);
                 }
             }
             var cachedApiConfig = __assign({}, config, { url: url,
-                method: method, original: config, filters: __assign({}, filters) });
+                method: method, original: config, filters: __assign({}, filters$$1) });
             this.apis.set(name, cachedApiConfig);
             return this;
         };
         Endpoint.prototype.configure = function (_a) {
             var _this = this;
-            var basePath = _a.basePath, filters = _a.filters, apis = _a.apis;
+            var basePath = _a.basePath, filters$$1 = _a.filters, apis = _a.apis;
             if (basePath) {
                 this.basePath = basePath;
             }
-            if (filters) {
-                this.addFilters(filters.request, FilterOpportunity.REQUEST);
-                this.addFilters(filters.failure, FilterOpportunity.RESPONSE_ERROR);
-                this.addFilters(filters.success, FilterOpportunity.RESPONSE_SUCCESS);
+            if (filters$$1) {
+                this.addFilters(filters$$1.request, FilterOpportunity.REQUEST);
+                this.addFilters(filters$$1.failure, FilterOpportunity.RESPONSE_ERROR);
+                this.addFilters(filters$$1.success, FilterOpportunity.RESPONSE_SUCCESS);
             }
             if (apis) {
                 Object.keys(apis).forEach(function (name) {
@@ -940,12 +932,9 @@
             return this;
         };
         Endpoint.prototype.api = function (name) {
-            if (!this.apis.has(name)) {
-                throw new Error("api '" + name + "' has not been registered!");
-            }
             var config = this.apis.get(name);
             if (!config) {
-                return;
+                throw new Error("api '" + name + "' has not been registered!");
             }
             return new Ajax(this.ajaxAPI, {
                 url: config.url || '',
@@ -955,12 +944,12 @@
                 filters: config.filters,
             });
         };
-        Endpoint.prototype.addFilters = function (filters, opt) {
+        Endpoint.prototype.addFilters = function (filters$$1, opt) {
             var _this = this;
-            if (filters && !(filters instanceof Array)) {
-                filters = [filters];
+            if (filters$$1 && !(filters$$1 instanceof Array)) {
+                filters$$1 = [filters$$1];
             }
-            filters.filter(function (filter) { return !!filter; }).forEach(function (filter) {
+            filters$$1.filter(function (filter) { return !!filter; }).forEach(function (filter) {
                 _this.addFilter(filter, FilterOpportunity.REQUEST);
             });
         };

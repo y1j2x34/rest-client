@@ -26,6 +26,6 @@ export default class Ajax {
     private resolveRequestFilters(optionFilters, doRequestFilter);
     private resolveResponseErrorFilters(optionFilters);
     private resolveResponseSuccessFilters(optionFilters);
-    private concatFilters(...filters);
-    private cloneFilters(filters?);
+    private concatFilters(...filtersArray);
+    private cloneFilters(filtersArray?);
 }

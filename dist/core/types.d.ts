@@ -14,7 +14,7 @@ export interface IFormData {
     [key: string]: string;
 }
 export interface IPathVariables {
-    [key: string]: string;
+    [key: string]: Primitive;
 }
 export declare enum HttpMethod {
     GET = 0,
@@ -67,6 +67,7 @@ export interface IPathVariable extends IParamConfig {
 export interface IFormdataConfig extends IParamConfig {
     defaultValue?: Primitive;
 }
+export declare const ajaxAPIParameterFields: RequestParamField[];
 export interface IAPIConfig {
     [key: string]: any;
     url?: string;
