@@ -29,7 +29,7 @@ export default function pathVariableFilter(
     } = {};
 
     for (const [key, value] of Object.entries(vars)) {
-        let decoded = value;
+        let decoded = '' + value;
         try {
             decoded = decodeURI(decoded);
         } catch (error) {

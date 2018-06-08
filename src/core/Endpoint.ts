@@ -168,14 +168,10 @@ export default class Endpoint {
         }
         return this;
     }
-    public api(name: string): any {
-        if (!this.apis.has(name)) {
-            throw new Error(`api '${name}' has not been registered!`);
-        }
-
+    public api(name: string): Ajax {
         const config = this.apis.get(name);
         if (!config) {
-            return;
+            throw new Error(`api '${name}' has not been registered!`);
         }
         return new Ajax(this.ajaxAPI, {
             url: config.url || '',

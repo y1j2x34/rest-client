@@ -25,7 +25,7 @@ export interface IFormData {
     [key: string]: string;
 }
 export interface IPathVariables {
-    [key: string]: string;
+    [key: string]: Primitive;
 }
 
 export enum HttpMethod {
