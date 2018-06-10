@@ -67,3 +67,18 @@ export function mime(
         return filetype.call(null, input).mime;
     }
 }
+
+export class Defer<T> {
+    public resolve: (value: T | Promise<T>) => void;
+    public reject: (reason: Error) => void;
+    private innerPromise: Promise<T>;
+    constructor() {
+        this.innerPromise = new Promise<T>((resolve, reject) => {
+            this.resolve = resolve;
+            this.reject = reject;
+        });
+    }
+    get promise() {
+        return this.innerPromise;
+    }
+}
