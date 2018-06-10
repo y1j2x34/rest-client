@@ -1,8 +1,9 @@
 import { MockerRequest } from 'superagent-mocker';
 import db from '../../db/index';
+import { RouterHandler } from '..';
 
 export const path = '/role/:id.do';
-export const handler = (req: MockerRequest) => {
+export const handler: RouterHandler = (req: MockerRequest) => {
     const id = req.params.id;
     const role = db.roles[id];
     if (!role) {

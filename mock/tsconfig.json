@@ -6,9 +6,9 @@
     "baseUrl": "./",
     "importHelpers": true,
     "typeRoots": [
-      "../mock/typings",
+      "./typings",
       "../node_modules/@types"
     ]
   },
-  "include": ["../src", "../mock", "./"]
+  "include": ["../src", "./"]
 }

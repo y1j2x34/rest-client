@@ -1,18 +1,16 @@
 import { MockerRequest } from 'superagent-mocker';
 import db from '../../db/index';
+import { MockResponse } from '..';
 
 export const path = '/user/createUser.do';
-export function handler(req: MockerRequest) {
+export function handler(req: MockerRequest): MockResponse {
     const { username, age, roleId } = req.query;
 
     const role = db.roles[roleId];
     if (!role) {
         return {
             status: 400,
-            data: {
-                success: false,
-                reason: `role not exists: ${roleId}`,
-            },
+            body: `role not exists: ${roleId}`,
         };
     }
     const userId =
@@ -27,9 +25,8 @@ export function handler(req: MockerRequest) {
         age,
     };
     return {
-        data: {
+        body: {
             userId,
-            success: true,
         },
     };
 }
