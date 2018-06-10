@@ -363,6 +363,23 @@
             return filetype.call(null, input).mime;
         }
     }
+    var Defer = /** @class */ (function () {
+        function Defer() {
+            var _this = this;
+            this.innerPromise = new Promise(function (resolve, reject) {
+                _this.resolve = resolve;
+                _this.reject = reject;
+            });
+        }
+        Object.defineProperty(Defer.prototype, "promise", {
+            get: function () {
+                return this.innerPromise;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return Defer;
+    }());
 
     function transformFilesParameterFilter(options, chain) {
         if (!options.files || typeof FormData === 'undefined') {
