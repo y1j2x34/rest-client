@@ -1,5 +1,7 @@
-import * as getRoles from './get/roles';
-import * as getUsers from './get/user';
+import * as getRole from './get/role';
+import * as getUser from './get/user';
+import * as allRoles from './get/allRoles';
+import * as allUsers from './get/allUsers';
 
 import * as createUser from './post/createUser';
 import * as uploadAvator from './post/uploadAvator';
@@ -31,7 +33,7 @@ export interface RouteMap {
     put: Route[];
 }
 
-export const get = [getRoles, getUsers];
+export const get = [getRole, getUser, allUsers, allRoles];
 export const post = [createUser, uploadAvator];
 export const del = [];
 export const patch = [];
