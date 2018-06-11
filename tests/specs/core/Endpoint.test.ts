@@ -23,13 +23,5 @@ describe('test Endpoint', () => {
         });
         expect(endpoint.api(apiname)).to.not.undefined;
         expect(endpoint.api(apiname)).to.not.null;
-        endpoint
-            .api(apiname)
-            .request({
-                pathVariables: {
-                    id: '0',
-                },
-            })
-            .then(console.log, console.error);
     });
 });
