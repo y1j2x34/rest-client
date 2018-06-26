@@ -5,8 +5,8 @@ import { variables } from '../global';
 
 describe('test Endpoint', () => {
     it('create empty endpoint', () => {
-        const defaultEndpoint = new Endpoint('/');
-        console.info(defaultEndpoint);
+        new Endpoint('/');
+        // console.info(defaultEndpoint);
     });
     it('register api', async () => {
         const endpoint = new Endpoint(variables.server.host, '');
