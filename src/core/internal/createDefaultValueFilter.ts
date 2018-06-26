@@ -1,12 +1,13 @@
 import { IAjaxRequestOptions, IParamConfig, RequestParamField } from '../types';
 import FilterChain from '../FilterChain';
+import { isFormData } from '../utils';
 
 export default function createDefaultValueFilter(
     paramConfigs: IParamConfig[],
     field: RequestParamField
 ): (options: IAjaxRequestOptions, chain: FilterChain) => any {
     return (options: IAjaxRequestOptions, chain: FilterChain) => {
-        let pairs = options[field];
+        let pairs: any = options[field];
         if (!pairs) {
             pairs = options[field] = {};
         }
@@ -17,7 +18,7 @@ export default function createDefaultValueFilter(
                 return chain.next(options);
             }
 
-            if (pairs instanceof FormData) {
+            if (isFormData(pairs)) {
                 value = pairs.get(paramName);
             } else {
                 value = pairs[paramName];
@@ -27,10 +28,10 @@ export default function createDefaultValueFilter(
                 value = paramConfig.defaultValue;
             }
 
-            if (pairs instanceof FormData) {
-                pairs.set(name, value);
+            if (isFormData(pairs)) {
+                pairs.set(paramName, value);
             } else {
-                pairs[name] = value;
+                pairs[paramName] = value;
             }
         }
         return chain.next(options);

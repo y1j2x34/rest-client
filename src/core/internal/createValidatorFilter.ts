@@ -1,5 +1,6 @@
 import { IAjaxRequestOptions, IParamConfig, RequestParamField } from '../types';
 import FilterChain from '../FilterChain';
+import { isFormData } from '../utils';
 
 export default function createValidatorFilter(
     paramConfigs: IParamConfig[],
@@ -9,13 +10,13 @@ export default function createValidatorFilter(
         for (const paramConfig of paramConfigs) {
             const validator = paramConfig.validator;
             options = JSON.parse(JSON.stringify(options));
-            let pairs = options[field];
+            let pairs: any = options[field];
             if (!pairs) {
                 pairs = options[field] = {};
             }
             const paramName = paramConfig.name;
             let value;
-            if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+            if (isFormData(pairs)) {
                 value = pairs.get(paramName);
             } else {
                 value = (pairs as any)[paramName];

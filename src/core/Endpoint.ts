@@ -39,9 +39,9 @@ export default class Endpoint {
     private apis: Map<string, ICachedAPIConfig> = new Map();
 
     constructor(
-        private server: string,
+        private readonly server: string,
         private basePath: string = '',
-        private ajaxAPI: IAjaxAPI = superAgentAjaxAPI
+        private readonly ajaxAPI: IAjaxAPI = superAgentAjaxAPI
     ) {}
 
     public addFilter(filter: Filter, opportunity: FilterOpportunity): Endpoint {
@@ -70,7 +70,6 @@ export default class Endpoint {
         }
         const { path, method = 'GET' } = config;
         let { url } = config;
-
         if (!url && !path) {
             throw new Error(
                 'API configuration error: missing "url" and "path"'

@@ -68,6 +68,9 @@ export function mime(
     }
 }
 
+export const isFormData = value =>
+    typeof FormData !== 'undefined' && value instanceof FormData;
+
 export class Defer<T> {
     public resolve: (value: T | Promise<T>) => void;
     public reject: (reason: Error) => void;

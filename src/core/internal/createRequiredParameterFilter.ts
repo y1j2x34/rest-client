@@ -1,19 +1,20 @@
 import { IAjaxRequestOptions, IParamConfig, RequestParamField } from '../types';
 import FilterChain from '../FilterChain';
+import { isFormData } from '../utils';
 
 export default function createRequireParameterFilter(
     paramConfigs: IParamConfig[],
     field: RequestParamField
 ) {
     return (options: IAjaxRequestOptions, chain: FilterChain) => {
-        let pairs = options[field];
+        let pairs: any = options[field];
         if (pairs === undefined) {
             pairs = options[field] = {};
         }
         for (const paramConfig of paramConfigs) {
             const paramName = paramConfig.name;
             let value;
-            if (typeof FormData !== 'undefined' && pairs instanceof FormData) {
+            if (isFormData(pairs)) {
                 value = pairs.get(paramName);
             } else {
                 value = (pairs as any)[paramName];
